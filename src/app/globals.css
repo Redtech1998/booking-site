@@ -1,0 +1,80 @@
+/* RSE | OS — Global Styles */
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-maroon-dark: #6b2e4c;
+  --color-maroon-light: #a83d5b;
+  --color-cream: #f5e6cc;
+  --color-white: #ffffff;
+  --color-black: #0f0f10;
+  --color-grey-dark: #2a2a2a;
+  --color-grey-mid: #4a4a4a;
+  --color-grey-light: #e5e5e5;
+  --gradient-primary: linear-gradient(135deg, #6b2e4c 0%, #a83d5b 100%);
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-canvas text-ink text-base;
+    font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Montserrat", sans-serif;
+  }
+
+  ::selection {
+    background-color: #6b2e4c;
+    color: #f5e6cc;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-line rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-ink-3; }
+}
+
+@layer components {
+  /* ── Buttons ── */
+  .btn {
+    @apply inline-flex items-center gap-2 rounded font-medium
+           transition-all duration-150 cursor-pointer select-none;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white text-sm px-4 py-2
+           hover:bg-[#6B1919] active:scale-[.99] shadow-sm;
+  }
+  .btn-ghost {
+    @apply btn text-ink-2 text-sm px-3 py-2
+           hover:bg-subtle hover:text-ink active:scale-[.99];
+  }
+  .btn-outline {
+    @apply btn border border-line text-ink text-sm px-3 py-2
+           hover:bg-subtle active:scale-[.99];
+  }
+
+  /* ── Card ── */
+  .card {
+    @apply bg-surface border border-line rounded-lg shadow-card;
+  }
+
+  /* ── Input ── */
+  .input {
+    @apply w-full bg-surface border border-line rounded text-ink text-sm
+           px-3 py-2 placeholder:text-ink-3
+           focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-light
+           transition-colors;
+  }
+}
