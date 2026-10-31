@@ -88,12 +88,18 @@ export default function BookingPortalPage() {
     return now.toISOString().split("T")[0];
   });
 
-  // Automatically find and select the earliest available live slot on load
+  // Guard to ensure initial slot auto-selection runs strictly ONCE on mount
+  // and NEVER overwrites the user's manual date/month selection during polling or background re-renders.
+  const initialSlotInitialized = useRef<boolean>(false);
+
+  // Automatically find and select the earliest available live slot on load (strictly once)
   useEffect(() => {
+    if (initialSlotInitialized.current) return;
     try {
       const todayYmd = new Date().toISOString().split("T")[0];
       const nextAvail = findNextAvailableSlot(todayYmd, 2);
       if (nextAvail) {
+        initialSlotInitialized.current = true;
         setSelectedDate(nextAvail);
         const parts = nextAvail.split("-");
         if (parts.length === 3) {
@@ -101,7 +107,8 @@ export default function BookingPortalPage() {
         }
       }
     } catch (_) {}
-  }, [findNextAvailableSlot]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-scroll and auto-reframe smooth animation to top of wizard on step change
   useEffect(() => {
@@ -468,8 +475,20 @@ export default function BookingPortalPage() {
   const firstDayIndex = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  const prevMonth = () => setCalendarMonth(new Date(year, month - 1, 1));
-  const nextMonth = () => setCalendarMonth(new Date(year, month + 1, 1));
+  const currentNow = new Date();
+  const currentYear = currentNow.getFullYear();
+  const currentMonth = currentNow.getMonth();
+  const isPastMonth = year < currentYear || (year === currentYear && month <= currentMonth);
+
+  const prevMonth = () => {
+    if (isPastMonth) return;
+    initialSlotInitialized.current = true;
+    setCalendarMonth(new Date(year, month - 1, 1));
+  };
+  const nextMonth = () => {
+    initialSlotInitialized.current = true;
+    setCalendarMonth(new Date(year, month + 1, 1));
+  };
 
   // Active in-progress edits count
   const activeEditsCount = bookings.filter(
@@ -913,6 +932,7 @@ export default function BookingPortalPage() {
                       <button
                         type="button"
                         onClick={() => {
+                          initialSlotInitialized.current = true;
                           const now = new Date();
                           setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
                         }}
@@ -927,15 +947,18 @@ export default function BookingPortalPage() {
                       <button
                         type="button"
                         onClick={prevMonth}
-                        className="p-1 sm:p-1.5 rounded hover:bg-[#f5f5f5] text-[#4a4a4a]"
-                        title="Previous Month"
+                        disabled={isPastMonth}
+                        className={`p-1 sm:p-1.5 rounded transition-all ${
+                          isPastMonth ? "opacity-30 cursor-not-allowed text-[#bbb]" : "hover:bg-[#f5f5f5] text-[#4a4a4a] cursor-pointer"
+                        }`}
+                        title={isPastMonth ? "Cannot navigate to past months" : "Previous Month"}
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
                         onClick={nextMonth}
-                        className="p-1 sm:p-1.5 rounded hover:bg-[#f5f5f5] text-[#4a4a4a]"
+                        className="p-1 sm:p-1.5 rounded hover:bg-[#f5f5f5] text-[#4a4a4a] cursor-pointer transition-all"
                         title="Next Month"
                       >
                         <ChevronRight className="h-4 w-4" />
@@ -981,6 +1004,7 @@ export default function BookingPortalPage() {
                           key={dateStr}
                           type="button"
                           onClick={() => {
+                            initialSlotInitialized.current = true;
                             if (isPast) {
                               setUnavailablePrompt({
                                 date: dateStr,
@@ -1102,6 +1126,7 @@ export default function BookingPortalPage() {
                           <button
                             type="button"
                             onClick={() => {
+                              initialSlotInitialized.current = true;
                               setSelectedDate(nextAvail);
                               setUnavailablePrompt(null);
                               const parts = nextAvail.split("-");
