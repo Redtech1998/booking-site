@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
 import {
@@ -70,15 +70,50 @@ export default function BookingPortalPage() {
   // Step 3: Your Details (Auto-detected phone, Country/City)
   // Step 4: Data Delivery & Confirm (Foreign Online options vs Indian HDD/Online)
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const wizardRef = useRef<HTMLDivElement>(null);
 
-  // Month navigation for visual calendar
-  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date(2026, 10, 1)); // Nov 2026
+  // Month navigation for visual calendar (defaults dynamically to current live month)
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   // 03) Offer Popup State
   const [showOfferPopup, setShowOfferPopup] = useState<boolean>(true);
 
-  // Form Fields
-  const [selectedDate, setSelectedDate] = useState<string>("2026-11-06");
+  // Form Fields - Selected Date (defaults to dynamic ISO date)
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const now = new Date();
+    now.setDate(now.getDate() + 4);
+    return now.toISOString().split("T")[0];
+  });
+
+  // Automatically find and select the earliest available live slot on load
+  useEffect(() => {
+    try {
+      const todayYmd = new Date().toISOString().split("T")[0];
+      const nextAvail = findNextAvailableSlot(todayYmd, 2);
+      if (nextAvail) {
+        setSelectedDate(nextAvail);
+        const parts = nextAvail.split("-");
+        if (parts.length === 3) {
+          setCalendarMonth(new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1));
+        }
+      }
+    } catch (_) {}
+  }, [findNextAvailableSlot]);
+
+  // Auto-scroll and auto-reframe smooth animation to top of wizard on step change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const el = wizardRef.current;
+      if (el) {
+        const yOffset = -80; // Offset for sticky header
+        const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+      }
+    }
+  }, [currentStep]);
 
   // 02) Region selection - only reveal services AFTER region is chosen (null by default)
   const [region, setRegion] = useState<RegionType | null>(null);
@@ -565,7 +600,7 @@ export default function BookingPortalPage() {
       )}
 
       {/* ── Main Booking Section ── */}
-      <main className="py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto space-y-8">
+      <main className="py-8 sm:py-10 px-3 sm:px-6 lg:px-8 max-w-5xl mx-auto space-y-6 sm:space-y-8 pb-24 sm:pb-10">
         {/* Section Header */}
         <div className="text-center space-y-2">
           <h1 className="font-['Montserrat',sans-serif] text-3xl sm:text-4xl font-extrabold text-[#0f0f10] tracking-tight">
@@ -613,40 +648,55 @@ export default function BookingPortalPage() {
         </div>
 
         {/* 4 Step Progress Pills */}
-        <div className="flex flex-wrap gap-2.5 sm:gap-3 justify-center pt-1">
-          {[
-            { s: 1, label: "Select Date" },
-            { s: 2, label: "Deliverables" },
-            { s: 3, label: "Studio Details" },
-            { s: 4, label: "Delivery & Submit" },
-          ].map((item) => (
-            <button
-              key={item.s}
-              type="button"
-              disabled={item.s > currentStep}
-              onClick={() => item.s < currentStep && setCurrentStep(item.s)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                currentStep === item.s
-                  ? "bg-[#6b2e4c] text-white shadow-md font-semibold ring-2 ring-[#6b2e4c]/30"
-                  : currentStep > item.s
-                  ? "bg-[#22c55e] text-white cursor-pointer hover:bg-[#16a34a]"
-                  : "bg-[#f5f5f5] text-[#666] cursor-not-allowed opacity-75"
-              }`}
-            >
-              <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+        <div className="w-full max-w-xl mx-auto pt-1">
+          {/* Mobile Current Step Tag */}
+          <div className="sm:hidden flex items-center justify-between px-2 mb-2">
+            <span className="text-[11px] font-bold text-[#6b2e4c] uppercase tracking-wider">
+              Step {currentStep} of 4:
+            </span>
+            <span className="text-xs font-bold text-[#0f0f10]">
+              {currentStep === 1 && "Select Preferred Date"}
+              {currentStep === 2 && "Choose Deliverables"}
+              {currentStep === 3 && "Studio & Couple Details"}
+              {currentStep === 4 && "Data Delivery & Confirmation"}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between sm:justify-center gap-1.5 sm:gap-3 overflow-x-auto no-scrollbar py-1 px-1">
+            {[
+              { s: 1, label: "Select Date" },
+              { s: 2, label: "Deliverables" },
+              { s: 3, label: "Studio Details" },
+              { s: 4, label: "Delivery & Submit" },
+            ].map((item) => (
+              <button
+                key={item.s}
+                type="button"
+                disabled={item.s > currentStep}
+                onClick={() => item.s < currentStep && setCurrentStep(item.s)}
+                className={`flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs font-medium transition-all shrink-0 ${
                   currentStep === item.s
-                    ? "bg-white/20 text-white"
+                    ? "bg-[#6b2e4c] text-white shadow-md font-semibold ring-2 ring-[#6b2e4c]/30"
                     : currentStep > item.s
-                    ? "bg-white/20 text-white"
-                    : "bg-[#e5e5e5] text-[#666]"
+                    ? "bg-[#22c55e] text-white cursor-pointer hover:bg-[#16a34a]"
+                    : "bg-[#f5f5f5] text-[#888] cursor-not-allowed opacity-75"
                 }`}
               >
-                {currentStep > item.s ? "✓" : item.s}
-              </span>
-              <span>{item.label}</span>
-            </button>
-          ))}
+                <span
+                  className={`flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full text-[9px] sm:text-[10px] font-bold ${
+                    currentStep === item.s
+                      ? "bg-white/20 text-white"
+                      : currentStep > item.s
+                      ? "bg-white/20 text-white"
+                      : "bg-[#e5e5e5] text-[#666]"
+                  }`}
+                >
+                  {currentStep > item.s ? "✓" : item.s}
+                </span>
+                <span className="hidden xs:inline">{item.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* CONFIRMATION SCREEN */}
@@ -828,7 +878,10 @@ export default function BookingPortalPage() {
           </div>
         ) : (
           /* FORM CONTAINER */
-          <div className="bg-white border border-[#e5e5e5] rounded-[1.5rem] shadow-[0_4px_24px_rgba(0,0,0,0.08)] p-6 sm:p-10 max-w-4xl mx-auto space-y-6">
+          <div
+            ref={wizardRef}
+            className="bg-white border border-[#e5e5e5] rounded-[1.5rem] shadow-[0_4px_24px_rgba(0,0,0,0.08)] p-4 sm:p-10 max-w-4xl mx-auto space-y-6"
+          >
             {submitError && (
               <div className="bg-[#ef44441a] border border-[#ef44444d] text-[#991b1b] p-3 rounded-xl text-xs flex items-center space-x-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />
@@ -838,37 +891,52 @@ export default function BookingPortalPage() {
 
             {/* ── STEP 1: VISUAL CALENDAR FIRST ── */}
             {currentStep === 1 && (
-              <div className="space-y-6">
+              <div className="animate-step-fade space-y-6">
                 <div>
-                  <h3 className="font-['Montserrat',sans-serif] text-xl font-bold text-[#6b2e4c] flex items-center space-x-2 pb-2 border-b-2 border-[#e5e5e5]">
-                    <CalendarIcon className="h-6 w-6 text-[#a83d5b]" />
+                  <h3 className="font-['Montserrat',sans-serif] text-lg sm:text-xl font-bold text-[#6b2e4c] flex items-center space-x-2 pb-2 border-b-2 border-[#e5e5e5]">
+                    <CalendarIcon className="h-5 w-5 sm:h-6 sm:w-6 text-[#a83d5b]" />
                     <span>Select Your Preferred Date</span>
                   </h3>
                   <p className="text-xs text-[#4a4a4a] mt-1">
-                    Check our studio availability and choose a date that works for you
+                    Check our studio live availability and choose an active editing slot
                   </p>
                 </div>
 
                 {/* Visual Month Calendar */}
-                <div className="border border-[#e5e5e5] rounded-2xl p-4 sm:p-6 bg-white space-y-4">
-                  {/* Month Switcher Header */}
-                  <div className="flex items-center justify-between">
-                    <span className="font-['Montserrat',sans-serif] text-base font-bold text-[#0f0f10]">
-                      {monthNames[month]} {year}
-                    </span>
+                <div className="border border-[#e5e5e5] rounded-2xl p-3 sm:p-6 bg-white space-y-4">
+                  {/* Month Switcher Header with Jump to Today */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-['Montserrat',sans-serif] text-base sm:text-lg font-bold text-[#0f0f10]">
+                        {monthNames[month]} {year}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const now = new Date();
+                          setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+                        }}
+                        className="px-2 py-0.5 text-[10px] font-bold uppercase rounded border border-[#6b2e4c]/20 bg-[#f5e6cc]/50 text-[#6b2e4c] hover:bg-[#f5e6cc] transition-all cursor-pointer"
+                        title="Jump to current month"
+                      >
+                        Today
+                      </button>
+                    </div>
 
                     <div className="flex items-center space-x-1 border border-[#e5e5e5] rounded-lg p-0.5">
                       <button
                         type="button"
                         onClick={prevMonth}
-                        className="p-1.5 rounded hover:bg-[#f5f5f5] text-[#4a4a4a]"
+                        className="p-1 sm:p-1.5 rounded hover:bg-[#f5f5f5] text-[#4a4a4a]"
+                        title="Previous Month"
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
                         onClick={nextMonth}
-                        className="p-1.5 rounded hover:bg-[#f5f5f5] text-[#4a4a4a]"
+                        className="p-1 sm:p-1.5 rounded hover:bg-[#f5f5f5] text-[#4a4a4a]"
+                        title="Next Month"
                       >
                         <ChevronRight className="h-4 w-4" />
                       </button>
@@ -876,7 +944,7 @@ export default function BookingPortalPage() {
                   </div>
 
                   {/* Days Header */}
-                  <div className="grid grid-cols-7 gap-1 text-center font-bold text-[11px] uppercase text-[#666] py-1 border-b border-[#e5e5e5]">
+                  <div className="grid grid-cols-7 gap-1 text-center font-bold text-[10px] sm:text-[11px] uppercase text-[#666] py-1 border-b border-[#e5e5e5]">
                     <span className="text-[#ef4444]">Sun</span>
                     <span>Mon</span>
                     <span>Tue</span>
@@ -887,9 +955,9 @@ export default function BookingPortalPage() {
                   </div>
 
                   {/* Days Grid */}
-                  <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                  <div className="grid grid-cols-7 gap-1 sm:gap-2">
                     {Array.from({ length: firstDayIndex }).map((_, i) => (
-                      <div key={`offset-${i}`} className="h-16 sm:h-20 rounded-xl bg-transparent" />
+                      <div key={`offset-${i}`} className="h-14 sm:h-20 rounded-lg sm:rounded-xl bg-transparent" />
                     ))}
 
                     {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -900,6 +968,11 @@ export default function BookingPortalPage() {
                       const dayOfWeek = new Date(year, month, dayNumber).getDay();
                       const isSelected = selectedDate === dateStr;
 
+                      const now = new Date();
+                      const todayYmd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+                      const isToday = dateStr === todayYmd;
+                      const isPast = dateStr < todayYmd;
+
                       const avail = getSlotAvailability(dateStr);
                       const isSunday = dayOfWeek === 0;
 
@@ -908,6 +981,13 @@ export default function BookingPortalPage() {
                           key={dateStr}
                           type="button"
                           onClick={() => {
+                            if (isPast) {
+                              setUnavailablePrompt({
+                                date: dateStr,
+                                reason: "Past date (cannot select historical dates)",
+                              });
+                              return;
+                            }
                             if (avail.isAvailable) {
                               setSelectedDate(dateStr);
                               setUnavailablePrompt(null);
@@ -918,19 +998,30 @@ export default function BookingPortalPage() {
                               });
                             }
                           }}
-                          className={`h-16 sm:h-20 p-1.5 sm:p-2 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                          className={`h-14 sm:h-20 p-1 sm:p-2 rounded-lg sm:rounded-xl border text-left transition-all flex flex-col justify-between ${
                             isSelected
                               ? "border-[#6b2e4c] bg-[#6b2e4c] text-white shadow-md ring-2 ring-[#6b2e4c]"
+                              : isPast
+                              ? "border-[#f0f0f0] bg-[#fafafa] text-[#bbb] opacity-45 cursor-not-allowed"
                               : !avail.isAvailable
-                              ? "border-[#e5e5e5] bg-[#f8f8f8] text-[#999] opacity-60 hover:opacity-100 hover:border-amber-400 cursor-pointer"
-                              : "border-[#e5e5e5] bg-white hover:border-[#a83d5b] hover:bg-[#6b2e4c08] text-[#0f0f10]"
-                          }`}
+                              ? "border-[#e5e5e5] bg-[#f8f8f8] text-[#999] opacity-75 hover:opacity-100 hover:border-amber-400 cursor-pointer"
+                              : "border-[#e5e5e5] bg-white hover:border-[#a83d5b] hover:bg-[#6b2e4c08] text-[#0f0f10] active:scale-[0.98]"
+                          } ${isToday && !isSelected ? "ring-2 ring-amber-500/50 border-amber-500" : ""}`}
                         >
                           <div className="flex items-center justify-between w-full">
                             <span className="text-xs sm:text-sm font-bold">{dayNumber}</span>
-                            {isSunday && (
+                            {isToday && (
                               <span
-                                className={`text-[9px] font-bold px-1 rounded ${
+                                className={`text-[8px] font-extrabold uppercase px-1 py-0.2 rounded ${
+                                  isSelected ? "bg-white/25 text-white" : "bg-amber-100 text-amber-900 border border-amber-300"
+                                }`}
+                              >
+                                Today
+                              </span>
+                            )}
+                            {isSunday && !isToday && (
+                              <span
+                                className={`text-[8px] sm:text-[9px] font-bold px-1 rounded ${
                                   isSelected ? "bg-white/20 text-white" : "bg-[#e5e5e5] text-[#666]"
                                 }`}
                               >
@@ -941,17 +1032,23 @@ export default function BookingPortalPage() {
 
                           <div className="text-[10px] truncate w-full">
                             {isSelected ? (
-                              <span className="font-bold text-white flex items-center space-x-0.5">
+                              <span className="font-bold text-white flex items-center justify-center sm:justify-start space-x-0.5 text-[9px] sm:text-[10px]">
                                 <Check className="h-2.5 w-2.5" />
-                                <span>Selected</span>
+                                <span className="hidden sm:inline">Selected</span>
+                              </span>
+                            ) : isPast ? (
+                              <span className="text-[8px] sm:text-[9px] text-[#bbb] text-center sm:text-left block">
+                                Past
                               </span>
                             ) : !avail.isAvailable ? (
-                              <span className="text-[9px] text-[#999] truncate block">
+                              <span className="text-[8px] sm:text-[9px] text-[#999] text-center sm:text-left truncate block">
                                 {isSunday ? "Closed" : "Booked"}
                               </span>
                             ) : (
-                              <span className="text-[9px] font-semibold text-[#16a34a] block">
-                                • Available
+                              <span className="text-[8px] sm:text-[9px] font-semibold text-[#16a34a] flex items-center justify-center sm:justify-start space-x-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-[#16a34a] shrink-0"></span>
+                                <span className="hidden sm:inline">Available</span>
+                                <span className="sm:hidden">Open</span>
                               </span>
                             )}
                           </div>
@@ -961,19 +1058,23 @@ export default function BookingPortalPage() {
                   </div>
 
                   {/* Calendar Legend */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#e5e5e5] text-xs text-[#4a4a4a]">
-                    <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t border-[#e5e5e5] text-[11px] sm:text-xs text-[#4a4a4a]">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                       <div className="flex items-center space-x-1.5">
                         <span className="h-2.5 w-2.5 rounded-full bg-[#22c55e] inline-block"></span>
-                        <span>Available Slot</span>
+                        <span>Available</span>
                       </div>
                       <div className="flex items-center space-x-1.5">
                         <span className="h-2.5 w-2.5 rounded-full bg-[#ef4444] inline-block"></span>
-                        <span>Fully Booked</span>
+                        <span>Booked</span>
                       </div>
                       <div className="flex items-center space-x-1.5">
                         <span className="h-2.5 w-2.5 rounded-full bg-[#94a3b8] inline-block"></span>
-                        <span>Sunday / Closed</span>
+                        <span>Sunday</span>
+                      </div>
+                      <div className="flex items-center space-x-1.5">
+                        <span className="h-2 w-2 rounded-full border border-amber-500 bg-amber-100 inline-block"></span>
+                        <span>Today</span>
                       </div>
                     </div>
                   </div>
@@ -1052,7 +1153,7 @@ export default function BookingPortalPage() {
 
             {/* ── STEP 2: REGION & MULTIPLE DELIVERABLES (02 & 07) ── */}
             {currentStep === 2 && (
-              <div className="space-y-6">
+              <div className="animate-step-fade space-y-6">
                 <div>
                   <h3 className="font-['Montserrat',sans-serif] text-xl font-bold text-[#6b2e4c] flex items-center space-x-2 pb-2 border-b-2 border-[#e5e5e5]">
                     <Video className="h-6 w-6 text-[#a83d5b]" />
@@ -1274,7 +1375,7 @@ export default function BookingPortalPage() {
 
             {/* ── STEP 3: YOUR DETAILS (04 & 06) ── */}
             {currentStep === 3 && (
-              <div className="space-y-6">
+              <div className="animate-step-fade space-y-6">
                 <div>
                   <h3 className="font-['Montserrat',sans-serif] text-xl font-bold text-[#6b2e4c] flex items-center space-x-2 pb-2 border-b-2 border-[#e5e5e5]">
                     <User className="h-6 w-6 text-[#a83d5b]" />
@@ -1304,7 +1405,7 @@ export default function BookingPortalPage() {
                       <select
                         value={country}
                         onChange={(e) => handleCountryChange(e.target.value)}
-                        className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-xs text-[#0f0f10] bg-white outline-none"
+                        className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#0f0f10] bg-white outline-none"
                       >
                         <option value="United States">United States (+1)</option>
                         <option value="United Kingdom">United Kingdom (+44)</option>
@@ -1344,7 +1445,7 @@ export default function BookingPortalPage() {
                       placeholder={
                         region === "foreign" ? "e.g. London / New York / Toronto" : "e.g. Ahmedabad / Mumbai / Surat"
                       }
-                      className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-xs text-[#0f0f10] outline-none"
+                      className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#0f0f10] outline-none"
                     />
                   </div>
                 </div>
@@ -1362,7 +1463,7 @@ export default function BookingPortalPage() {
                       value={studioName}
                       onChange={(e) => setStudioName(e.target.value)}
                       placeholder="e.g. Lumina Films"
-                      className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-xs text-[#0f0f10] outline-none"
+                      className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#0f0f10] outline-none"
                     />
                     <span className="text-[10px] text-[#666]">Official Studio or Production House Name</span>
                   </div>
@@ -1378,7 +1479,7 @@ export default function BookingPortalPage() {
                       value={contactPerson}
                       onChange={(e) => setContactPerson(e.target.value)}
                       placeholder="e.g. Amit Patel"
-                      className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-xs text-[#0f0f10] outline-none"
+                      className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#0f0f10] outline-none"
                     />
                     <span className="text-[10px] text-[#666]">Primary Contact Person or Director</span>
                   </div>
@@ -1394,7 +1495,7 @@ export default function BookingPortalPage() {
                       value={coupleNames}
                       onChange={(e) => setCoupleNames(e.target.value)}
                       placeholder="e.g. Aarav & Diya Wedding"
-                      className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-xs text-[#0f0f10] outline-none"
+                      className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#0f0f10] outline-none"
                     />
                     <span className="text-[10px] text-[#666]">Wedding Couple or Project Title</span>
                   </div>
@@ -1430,7 +1531,7 @@ export default function BookingPortalPage() {
                       value={clientEmail}
                       onChange={(e) => setClientEmail(e.target.value)}
                       placeholder="client@studio.com"
-                      className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-xs text-[#0f0f10] outline-none"
+                      className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-[#0f0f10] outline-none"
                     />
                   </div>
                 </div>
@@ -1457,7 +1558,7 @@ export default function BookingPortalPage() {
 
             {/* ── STEP 4: DATA DELIVERY & SUBMIT (05) ── */}
             {currentStep === 4 && (
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="animate-step-fade space-y-6">
                 <div>
                   <h3 className="font-['Montserrat',sans-serif] text-xl font-bold text-[#6b2e4c] flex items-center space-x-2 pb-2 border-b-2 border-[#e5e5e5]">
                     <Send className="h-6 w-6 text-[#a83d5b]" />
@@ -1986,7 +2087,7 @@ export default function BookingPortalPage() {
                     value={projectNotes}
                     onChange={(e) => setProjectNotes(e.target.value)}
                     placeholder="LUT preferences, specific audio vows, wedding story brief, pacing preferences, or special cuts..."
-                    className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl p-3 text-xs text-[#0f0f10] outline-none"
+                    className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl p-3 text-base sm:text-xs text-[#0f0f10] outline-none"
                   />
                 </div>
 

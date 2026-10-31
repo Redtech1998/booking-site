@@ -68,7 +68,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(SEED_ATTENDANCE);
   const [hydrated, setHydrated] = useState(false);
 
-  // Hydrate from localStorage once on mount
+  // Hydrate from localStorage once on mount, then sync with server API
   useEffect(() => {
     try {
       const u = localStorage.getItem("rse_user");
@@ -90,6 +90,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (a) setAttendance(JSON.parse(a));
     } catch (_) {}
     setHydrated(true);
+
+    // Initial background sync from server API
+    fetch("/api/bookings", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.bookings) && data.bookings.length > 0) {
+          setBookings((prev) => {
+            const map = new Map<string, Booking>();
+            for (const item of data.bookings) map.set(item.id, item);
+            for (const item of prev) {
+              if (!map.has(item.id)) map.set(item.id, item);
+            }
+            return Array.from(map.values());
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Sync polling every 25 seconds & on window focus (so OS slot bookings reflect on web site live)
+  useEffect(() => {
+    const handleSync = () => {
+      fetch("/api/bookings", { cache: "no-store" })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.bookings) && data.bookings.length > 0) {
+            setBookings((prev) => {
+              const map = new Map<string, Booking>();
+              for (const item of data.bookings) map.set(item.id, item);
+              for (const item of prev) {
+                if (!map.has(item.id)) map.set(item.id, item);
+              }
+              return Array.from(map.values());
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    const interval = setInterval(handleSync, 25000);
+    window.addEventListener("focus", handleSync);
+    window.addEventListener("storage", handleSync);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
   }, []);
 
   // Persist whenever data changes
@@ -361,6 +409,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       setBookings((prev) => [newBooking, ...prev]);
       syncClientDirectory(newBooking);
+
+      // Sync immediately to server API
+      if (typeof window !== "undefined") {
+        fetch("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newBooking),
+        }).catch((e) => console.warn("Failed to sync booking to server:", e));
+      }
+
       return newBooking;
     },
     [bookings.length]
