@@ -1,8 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { StaffMember, Booking, AttendanceRecord, Client, BookingStatus } from "@/types";
-import { STAFF, SEED_BOOKINGS, SEED_ATTENDANCE, SEED_CLIENTS } from "@/data/seed";
+import { Booking, Client, BookingStatus } from "@/types";
+import { SEED_BOOKINGS, SEED_CLIENTS } from "@/data/seed";
 import {
   ALL_SERVICES,
   ServiceDefinition,
@@ -12,33 +12,17 @@ import {
 } from "@/data/servicesData";
 
 interface AppState {
-  // Auth
-  currentUser: StaffMember | null;
-  login: (email: string, password: string) => { success: boolean; error?: string };
-  logout: () => void;
-
   // Bookings
   bookings: Booking[];
   addBooking: (b: Omit<Booking, "id" | "code" | "createdAt">) => Booking;
-  updateBookingStatus: (id: string, status: BookingStatus) => void;
-  assignBooking: (id: string, staffId: string) => void;
-  updateFrameIo: (id: string, frameIoLink: string) => void;
-  rescheduleBooking: (id: string, newSlotDate: string, reason: string) => Booking;
-  sendFootageReminder: (id: string, channel: "whatsapp" | "email") => string;
 
   // Clients Directory
   clients: Client[];
   findClientByPhone: (phone: string) => Client | undefined;
-  updateClientWhatsAppGroup: (clientId: string, groupUrl: string) => void;
 
-  // Services & Pricing
+  // Services & Capacity
   services: ServiceDefinition[];
-  updateServicePrice: (serviceId: string, newPriceINR: number) => void;
-
-  // Holidays
   holidays: StudioHoliday[];
-  addHoliday: (holiday: StudioHoliday) => void;
-  removeHoliday: (date: string) => void;
 
   // Calculation & Slot Logic
   calculateDeliveryDate: (serviceId: string, slotDateStr: string, deliveryMethod: "courier" | "online") => string;
@@ -49,49 +33,29 @@ interface AppState {
     maxSlots: number;
   };
   findNextAvailableSlot: (fromSlotDateStr: string, editorDays: number) => string;
-
-  // Attendance
-  attendance: AttendanceRecord[];
-  punchIn: () => void;
-  punchOut: () => void;
-  todayRecord: AttendanceRecord | undefined;
 }
 
 const Ctx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<StaffMember | null>(null);
   const [bookings, setBookings] = useState<Booking[]>(SEED_BOOKINGS);
   const [clients, setClients] = useState<Client[]>(SEED_CLIENTS);
-  const [services, setServices] = useState<ServiceDefinition[]>(ALL_SERVICES);
-  const [holidays, setHolidays] = useState<StudioHoliday[]>(DEFAULT_HOLIDAYS);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>(SEED_ATTENDANCE);
+  const [services] = useState<ServiceDefinition[]>(ALL_SERVICES);
+  const [holidays] = useState<StudioHoliday[]>(DEFAULT_HOLIDAYS);
   const [hydrated, setHydrated] = useState(false);
 
   // Hydrate from localStorage once on mount, then sync with server API
   useEffect(() => {
     try {
-      const u = localStorage.getItem("rse_user");
-      if (u) setCurrentUser(JSON.parse(u));
-
       const b = localStorage.getItem("rse_bookings_v2");
       if (b) setBookings(JSON.parse(b));
 
       const c = localStorage.getItem("rse_clients_v2");
       if (c) setClients(JSON.parse(c));
-
-      const s = localStorage.getItem("rse_services_v2");
-      if (s) setServices(JSON.parse(s));
-
-      const h = localStorage.getItem("rse_holidays_v2");
-      if (h) setHolidays(JSON.parse(h));
-
-      const a = localStorage.getItem("rse_attendance");
-      if (a) setAttendance(JSON.parse(a));
     } catch (_) {}
     setHydrated(true);
 
-    // Initial background sync from server API
+    // Initial background sync from server API (/api/bookings)
     fetch("/api/bookings", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
@@ -109,7 +73,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []);
 
-  // Sync polling every 25 seconds & on window focus (so OS slot bookings reflect on web site live)
+  // Sync polling every 25 seconds & on window focus (syncs slots booked from external OS or other clients)
   useEffect(() => {
     const handleSync = () => {
       fetch("/api/bookings", { cache: "no-store" })
@@ -140,76 +104,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Persist whenever data changes
+  // Persist locally
   useEffect(() => {
     if (!hydrated) return;
     try {
       localStorage.setItem("rse_bookings_v2", JSON.stringify(bookings));
       localStorage.setItem("rse_clients_v2", JSON.stringify(clients));
-      localStorage.setItem("rse_services_v2", JSON.stringify(services));
-      localStorage.setItem("rse_holidays_v2", JSON.stringify(holidays));
-      localStorage.setItem("rse_attendance", JSON.stringify(attendance));
-      if (currentUser) {
-        localStorage.setItem("rse_user", JSON.stringify(currentUser));
-      } else {
-        localStorage.removeItem("rse_user");
-      }
     } catch (_) {}
-  }, [bookings, clients, services, holidays, attendance, currentUser, hydrated]);
-
-  // Auth
-  const login = useCallback(
-    (email: string, password: string): { success: boolean; error?: string } => {
-      const cleanEmail = email.trim().toLowerCase();
-      const cleanPass = password.trim();
-
-      const member = STAFF.find(
-        (s) => s.email.toLowerCase() === cleanEmail && s.password === cleanPass
-      );
-
-      if (!member) {
-        return { success: false, error: "ખોટો ઈમેઈલ અથવા પાસવર્ડ. કૃપા કરીને ફરી પ્રયાસ કરો." };
-      }
-
-      setCurrentUser(member);
-
-      // Auto punch-in on login
-      const todayStr = new Date().toISOString().split("T")[0];
-      const existing = attendance.find((a) => a.staffId === member.id && a.date === todayStr);
-      if (!existing) {
-        const rec: AttendanceRecord = {
-          id: `att_${Date.now()}`,
-          staffId: member.id,
-          date: todayStr,
-          punchIn: new Date().toISOString(),
-        };
-        setAttendance((prev) => [rec, ...prev]);
-      }
-
-      return { success: true };
-    },
-    [attendance]
-  );
-
-  const logout = useCallback(() => {
-    setCurrentUser(null);
-  }, []);
-
-  // Holiday management
-  const addHoliday = useCallback((holiday: StudioHoliday) => {
-    setHolidays((prev) => [...prev.filter((h) => h.date !== holiday.date), holiday]);
-  }, []);
-
-  const removeHoliday = useCallback((date: string) => {
-    setHolidays((prev) => prev.filter((h) => h.date !== date));
-  }, []);
-
-  // Service Pricing
-  const updateServicePrice = useCallback((serviceId: string, newPriceINR: number) => {
-    setServices((prev) =>
-      prev.map((s) => (s.id === serviceId ? { ...s, totalPriceINR: newPriceINR, basePriceINR: newPriceINR } : s))
-    );
-  }, []);
+  }, [bookings, clients, hydrated]);
 
   // Check Slot Availability
   const getSlotAvailability = useCallback(
@@ -284,29 +186,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [bookings, holidays]
   );
 
-  // Calculate Delivery Date with Holidays, Sundays, and Online +1.5 days buffer
+  // Calculate Delivery Date with Holidays, Sundays, and Online buffer
   const calculateDeliveryDate = useCallback(
     (serviceId: string, slotDateStr: string, deliveryMethod: "courier" | "online"): string => {
-      const s = services.find((item) => item.id === serviceId) || ALL_SERVICES[0];
-      const baseDays = s.clientDays || 5;
-
-      // Online transfer adds +1.5 days (rounded up to 2 days for calendar safety)
-      const bufferDays = deliveryMethod === "online" ? Math.ceil(STUDIO_CONFIG.ONLINE_INGEST_BUFFER_DAYS) : 0;
-      const totalWorkingDays = baseDays + bufferDays;
+      const svc = services.find((s) => s.id === serviceId);
+      const standardDays = svc ? svc.clientDays : 5;
 
       const cursor = new Date(`${slotDateStr}T00:00:00`);
-      let added = 0;
+      let countedDays = 0;
 
-      while (added < totalWorkingDays) {
+      while (countedDays < standardDays) {
         cursor.setDate(cursor.getDate() + 1);
         const ymd = cursor.toISOString().split("T")[0];
+        const isSunday = cursor.getDay() === 0;
+        const isHoliday = holidays.some((h) => h.date === ymd);
 
-        // Skip Sundays
-        if (cursor.getDay() === 0) continue;
-        // Skip Holidays
-        if (holidays.some((h) => h.date === ymd)) continue;
+        if (!isSunday && !isHoliday) {
+          countedDays += 1;
+        }
+      }
 
-        added += 1;
+      if (deliveryMethod === "online") {
+        let bufferAdded = 0;
+        while (bufferAdded < 1) {
+          cursor.setDate(cursor.getDate() + 1);
+          const ymd = cursor.toISOString().split("T")[0];
+          const isSunday = cursor.getDay() === 0;
+          const isHoliday = holidays.some((h) => h.date === ymd);
+          if (!isSunday && !isHoliday) {
+            bufferAdded += 1;
+          }
+        }
       }
 
       return cursor.toISOString().split("T")[0];
@@ -314,7 +224,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [services, holidays]
   );
 
-  // Find Next Available Slot for Rescheduling
+  // Find Next Available Slot
   const findNextAvailableSlot = useCallback(
     (fromSlotDateStr: string, editorDays: number): string => {
       const cursor = new Date(`${fromSlotDateStr}T00:00:00`);
@@ -333,13 +243,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [getSlotAvailability]
   );
 
-  // Update WhatsApp group link for a client in directory
-  const updateClientWhatsAppGroup = useCallback((clientId: string, groupUrl: string) => {
-    setClients((prev) =>
-      prev.map((c) => (c.id === clientId ? { ...c, whatsappGroupUrl: groupUrl } : c))
-    );
-  }, []);
-
   // Lookup client by phone
   const findClientByPhone = useCallback(
     (phone: string): Client | undefined => {
@@ -350,7 +253,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [clients]
   );
 
-  // Auto-sync or create client profile
+  // Sync client profile
   const syncClientDirectory = (booking: Booking) => {
     setClients((prev) => {
       const cleanPhone = booking.phone.replace(/\D/g, "");
@@ -370,7 +273,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 totalPaid: c.totalPaid + advanceAmount,
                 totalPending: c.totalPending + pendingAmount,
                 lastActive: new Date().toISOString(),
-                preferredLutStyle: booking.notes || c.preferredLutStyle,
               }
             : c
         );
@@ -384,7 +286,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         email: booking.email,
         region: booking.region,
         customerType: booking.customerType,
-        preferredLutStyle: booking.cameraProfile || "Standard",
         totalBookings: 1,
         totalBilled: totalAmount,
         totalPaid: advanceAmount,
@@ -424,170 +325,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [bookings.length]
   );
 
-  // Update Status
-  const updateBookingStatus = useCallback((id: string, status: BookingStatus) => {
-    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
-  }, []);
-
-  // Assign Editor
-  const assignBooking = useCallback((id: string, staffId: string) => {
-    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, assignedTo: staffId } : b)));
-  }, []);
-
-  // Update Frame.io link & trigger 7-day correction timer
-  const updateFrameIo = useCallback((id: string, frameIoLink: string) => {
-    const now = new Date();
-    const due = new Date(now);
-    due.setDate(due.getDate() + STUDIO_CONFIG.REVISION_DEADLINE_DAYS);
-
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === id
-          ? {
-              ...b,
-              frameIoLink,
-              previewSentAt: now.toISOString(),
-              correctionDueAt: due.toISOString(),
-              status: "preview_sent",
-            }
-          : b
-      )
-    );
-  }, []);
-
-  // Reschedule Booking when footage delayed
-  const rescheduleBooking = useCallback(
-    (id: string, newSlotDate: string, reason: string): Booking => {
-      let updatedBooking!: Booking;
-
-      setBookings((prev) =>
-        prev.map((b) => {
-          if (b.id !== id) return b;
-
-          const newDelivery = calculateDeliveryDate(b.serviceId, newSlotDate, b.deliveryMethod);
-          updatedBooking = {
-            ...b,
-            originalSlotDate: b.originalSlotDate || b.slotDate,
-            slotDate: newSlotDate,
-            deliveryDate: newDelivery,
-            rescheduledReason: reason,
-            status: "awaiting_footage",
-          };
-          return updatedBooking;
-        })
-      );
-
-      return updatedBooking;
-    },
-    [calculateDeliveryDate]
-  );
-
-  // Send WhatsApp / Email Reminder for Delayed Footage
-  const sendFootageReminder = useCallback(
-    (id: string, channel: "whatsapp" | "email"): string => {
-      const b = bookings.find((item) => item.id === id);
-      if (!b) return "";
-
-      const msg = `નમસ્તે ${b.studioOrClient || b.coupleNames}, RSE Post Production House તરફથી. તમારા પ્રોજેક્ટ (${b.code}) માટેનો એડિટિંગ સ્લોટ ${b.slotDate} ના રોજ રિઝર્વ છે. અમને હજુ સુધી તમારો ડેટા (HDD/લિંક) મળ્યો નથી. સ્લોટ કેન્સલ કે ડીલે ન થાય તે માટે આજે જ ડેટા મોકલવા વિનંતી. ડેટા મોડો આવ્યે સ્લોટ આગામી ઉપલબ્ધ તારીખે શિફ્ટ થઈ જશે. આભાર. - RSE Team`;
-
-      setBookings((prev) =>
-        prev.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                reminderHistory: [
-                  ...(item.reminderHistory || []),
-                  { timestamp: new Date().toISOString(), channel, message: msg },
-                ],
-              }
-            : item
-        )
-      );
-
-      if (channel === "whatsapp") {
-        const cleanPhone = b.phone.replace(/\D/g, "");
-        const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
-        if (typeof window !== "undefined") {
-          window.open(waUrl, "_blank");
-        }
-      } else if (channel === "email" && b.email) {
-        fetch("/api/send-confirmation", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "footage_reminder",
-            bookingCode: b.code,
-            clientEmail: b.email,
-            clientName: b.coupleNames,
-            studioName: b.studioOrClient,
-            slotDate: b.slotDate,
-            deliveryDate: b.deliveryDate,
-          }),
-        }).catch((err) => console.error("Footage reminder email error:", err));
-      }
-
-      return msg;
-    },
-    [bookings]
-  );
-
-  // Attendance
-  const today = new Date().toISOString().split("T")[0];
-  const todayRecord = currentUser
-    ? attendance.find((a) => a.staffId === currentUser.id && a.date === today)
-    : undefined;
-
-  const punchIn = useCallback(() => {
-    if (!currentUser) return;
-    const existing = attendance.find((a) => a.staffId === currentUser.id && a.date === today);
-    if (existing && !existing.punchOut) return;
-
-    const rec: AttendanceRecord = {
-      id: `att_${Date.now()}`,
-      staffId: currentUser.id,
-      date: today,
-      punchIn: new Date().toISOString(),
-    };
-    setAttendance((prev) => [rec, ...prev.filter((a) => !(a.staffId === currentUser.id && a.date === today))]);
-  }, [currentUser, attendance, today]);
-
-  const punchOut = useCallback(() => {
-    if (!currentUser || !todayRecord || todayRecord.punchOut) return;
-    setAttendance((prev) =>
-      prev.map((a) => (a.id === todayRecord.id ? { ...a, punchOut: new Date().toISOString() } : a))
-    );
-  }, [currentUser, todayRecord]);
-
-  if (!hydrated) return null;
-
   return (
     <Ctx.Provider
       value={{
-        currentUser,
-        login,
-        logout,
         bookings,
         addBooking,
-        updateBookingStatus,
-        assignBooking,
-        updateFrameIo,
-        rescheduleBooking,
-        sendFootageReminder,
         clients,
         findClientByPhone,
-        updateClientWhatsAppGroup,
         services,
-        updateServicePrice,
         holidays,
-        addHoliday,
-        removeHoliday,
         calculateDeliveryDate,
         getSlotAvailability,
         findNextAvailableSlot,
-        attendance,
-        punchIn,
-        punchOut,
-        todayRecord,
       }}
     >
       {children}

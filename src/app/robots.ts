@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: ["/", "/book"],
-        disallow: ["/os", "/os/*", "/api", "/api/*"],
+        disallow: ["/api", "/api/*"],
       },
     ],
     sitemap: "https://book.rsegnr.in/sitemap.xml",
