@@ -48,6 +48,7 @@ export type BookingStatus =
   | "in_selection_cut"    // 3. Premiere Pro Culling & Rough Cut
   | "in_edit_polish"      // 4. Color Grading, Sound & Main Edit
   | "preview_sent"        // 5. 70-80% Preview on Frame.io (7-day timer starts)
+  | "in_client_review"    // Client Review / Awaiting Feedback
   | "in_revision"         // 6. Saturday / In-progress Client Corrections
   | "ready_for_final"     // 7. Balance 50% Due before final release
   | "delivered_done";     // 8. Final Delivery Done & Archived
@@ -127,6 +128,7 @@ export interface Booking {
   correctionDueAt?: string;      // 7-day countdown deadline
 
   // Delay & Reschedule Tracking
+  delayDays?: number;            // Extra delay days cascaded from OS
   rescheduledReason?: string;
   reminderHistory?: ReminderLog[];
 

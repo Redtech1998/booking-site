@@ -81,10 +81,12 @@ export default function BookingPortalPage() {
   // 03) Offer Popup State
   const [showOfferPopup, setShowOfferPopup] = useState<boolean>(true);
 
-  // Form Fields - Selected Date (defaults to dynamic ISO date)
+  // Form Fields - Selected Date (defaults to dynamic ISO date for next week)
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const now = new Date();
-    now.setDate(now.getDate() + 4);
+    const dayOfWeek = now.getDay();
+    const daysUntilNextMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    now.setDate(now.getDate() + daysUntilNextMonday);
     return now.toISOString().split("T")[0];
   });
 
@@ -1079,7 +1081,7 @@ export default function BookingPortalPage() {
                               </span>
                             ) : !avail.isAvailable ? (
                               <span className="text-[8px] sm:text-[9px] text-[#999] text-center sm:text-left truncate block">
-                                {isSunday ? "Closed" : "Booked"}
+                                {isSunday ? "Closed" : avail.reason?.includes("Current Week") ? "This Week" : "Booked"}
                               </span>
                             ) : (
                               <span className="text-[8px] sm:text-[9px] font-semibold text-[#16a34a] flex items-center justify-center sm:justify-start space-x-1">
@@ -1159,10 +1161,20 @@ export default function BookingPortalPage() {
 
                 {/* Selected Date Box */}
                 {selectedDate && (
-                  <div className="bg-[#22c55e1a] border border-[#22c55e4d] text-[#166534] rounded-xl p-4 flex items-center space-x-3 text-xs">
-                    <CheckCircle className="h-5 w-5 shrink-0" />
+                  <div
+                    className={`${
+                      getSlotAvailability(selectedDate).isAvailable
+                        ? "bg-[#22c55e1a] border-[#22c55e4d] text-[#166534]"
+                        : "bg-amber-50 border-amber-300 text-amber-900"
+                    } border rounded-xl p-4 flex items-center space-x-3 text-xs`}
+                  >
+                    {getSlotAvailability(selectedDate).isAvailable ? (
+                      <CheckCircle className="h-5 w-5 shrink-0 text-[#166534]" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 shrink-0 text-amber-700" />
+                    )}
                     <div>
-                      <span className="block text-[11px] uppercase font-bold text-[#166534]">
+                      <span className="block text-[11px] uppercase font-bold">
                         Selected Production Date:
                       </span>
                       <strong className="text-sm font-['Montserrat',sans-serif]">
@@ -1173,6 +1185,11 @@ export default function BookingPortalPage() {
                           day: "numeric",
                         })}
                       </strong>
+                      {!getSlotAvailability(selectedDate).isAvailable && (
+                        <p className="text-[11px] font-medium text-amber-800 mt-0.5">
+                          ⚠️ {getSlotAvailability(selectedDate).reason}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1180,8 +1197,9 @@ export default function BookingPortalPage() {
                 <div className="pt-2 flex justify-end">
                   <button
                     type="button"
+                    disabled={!selectedDate || !getSlotAvailability(selectedDate).isAvailable}
                     onClick={() => setCurrentStep(2)}
-                    className="px-6 py-2.5 rounded-xl bg-[#6b2e4c] hover:bg-[#a83d5b] text-[#f5e6cc] font-semibold text-xs shadow-md shadow-[#6b2e4c4d] transition-all flex items-center space-x-2"
+                    className="px-6 py-2.5 rounded-xl bg-[#6b2e4c] hover:bg-[#a83d5b] text-[#f5e6cc] font-semibold text-xs shadow-md shadow-[#6b2e4c4d] transition-all flex items-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <span>Lock Preferred Date & Continue →</span>
                   </button>

@@ -125,15 +125,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
 
-      // 1. Past dates or Lead time buffer (Minimum 3 days)
-      const minDate = new Date(now);
-      minDate.setDate(now.getDate() + STUDIO_CONFIG.MIN_LEAD_DAYS);
+      // 1. Past dates or Current Week Lock (No same-day & No current week bookings)
+      // Any date up through the upcoming Sunday of the current week is strictly closed.
+      const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+      const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+      const currentWeekSunday = new Date(now);
+      currentWeekSunday.setDate(now.getDate() + daysUntilSunday);
+      currentWeekSunday.setHours(23, 59, 59, 999);
 
-      if (targetDate <= minDate) {
+      // Lead notice minimum buffer (e.g. 3 days)
+      const minNoticeDate = new Date(now);
+      minNoticeDate.setDate(now.getDate() + STUDIO_CONFIG.MIN_LEAD_DAYS);
+      minNoticeDate.setHours(23, 59, 59, 999);
+
+      // The cutoff is whichever is further: the end of current week or the min notice window
+      const cutoffDate = new Date(
+        Math.max(currentWeekSunday.getTime(), minNoticeDate.getTime())
+      );
+
+      if (targetDate <= now) {
         return {
           isAvailable: false,
-          reason: `Minimum ${STUDIO_CONFIG.MIN_LEAD_DAYS} days advance booking notice required`,
-          occupiedCount: 3,
+          reason: "Past date (cannot select historical dates)",
+          occupiedCount: STUDIO_CONFIG.DAILY_MAX_SLOTS,
+          maxSlots: STUDIO_CONFIG.DAILY_MAX_SLOTS,
+        };
+      }
+
+      if (targetDate <= cutoffDate) {
+        const isCurrentWeek = targetDate <= currentWeekSunday;
+        return {
+          isAvailable: false,
+          reason: isCurrentWeek
+            ? "Current Week Closed (Advance bookings open next week onwards)"
+            : `Minimum ${STUDIO_CONFIG.MIN_LEAD_DAYS} days advance booking notice required`,
+          occupiedCount: STUDIO_CONFIG.DAILY_MAX_SLOTS,
           maxSlots: STUDIO_CONFIG.DAILY_MAX_SLOTS,
         };
       }
@@ -143,7 +169,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return {
           isAvailable: false,
           reason: "Sunday (Studio Closed)",
-          occupiedCount: 3,
+          occupiedCount: STUDIO_CONFIG.DAILY_MAX_SLOTS,
           maxSlots: STUDIO_CONFIG.DAILY_MAX_SLOTS,
         };
       }
@@ -154,17 +180,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return {
           isAvailable: false,
           reason: `Public Holiday: ${holidayMatch.name}`,
-          occupiedCount: 3,
+          occupiedCount: STUDIO_CONFIG.DAILY_MAX_SLOTS,
           maxSlots: STUDIO_CONFIG.DAILY_MAX_SLOTS,
         };
       }
 
       // 4. Daily Capacity check with multi-day editor blocking
+      // Smart slot release: When an edit is delivered OR sent for client preview/review,
+      // the editor is free! So the slot is immediately released for new bookings!
       let activeOccupied = 0;
       for (const b of bookings) {
-        if (b.status === "delivered_done") continue;
+        if (
+          b.status === "delivered_done" ||
+          b.status === "preview_sent" ||
+          b.status === "in_client_review"
+        ) {
+          continue;
+        }
+
         const bStart = new Date(`${b.slotDate}T00:00:00`);
-        const durationDays = Math.max(1, Math.ceil(b.editorDays || 1));
+        const durationDays = Math.max(
+          1,
+          Math.ceil((b.editorDays || 1) + (b.delayDays || 0))
+        );
         const bEnd = new Date(bStart);
         bEnd.setDate(bStart.getDate() + durationDays - 1);
 
