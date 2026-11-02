@@ -245,8 +245,16 @@ export default function BookingPortalPage() {
   );
   const primaryService = selectedServicesList[0] || null;
 
-  // Combined Promised Turnaround:
-  // Base = max turnaround of selected services, plus +1 day for each additional deliverable
+  // Combined Editor Days (capacity blocked for studio editors):
+  // Sum of editor capacity days required across all selected deliverables
+  const totalCombinedEditorDays =
+    selectedServicesList.length > 0
+      ? selectedServicesList.reduce((sum, s) => sum + (s.editorDays || 1), 0)
+      : 4;
+
+  // Combined Promised Turnaround to Client:
+  // Base = maximum turnaround of selected services, plus +1 day buffer for each additional deliverable
+  // (e.g. Wedding Short Film (6d) + Teaser (2d) + Reel (1d) = 6 + 2 = 8 working days)
   const baseClientDays =
     selectedServicesList.length > 0
       ? Math.max(...selectedServicesList.map((s) => s.clientDays || 4), 4)
@@ -254,9 +262,14 @@ export default function BookingPortalPage() {
   const extraServicesBuffer = Math.max(0, selectedServicesList.length - 1);
   const totalCombinedClientDays = baseClientDays + extraServicesBuffer;
 
-  // Delivery date calculation
+  // Delivery date calculation passing the accurate combined days
   const promisedDeliveryDate = primaryService
-    ? calculateDeliveryDate(primaryService.id, selectedDate, dataDeliveryMethod)
+    ? calculateDeliveryDate(
+        primaryService.id,
+        selectedDate,
+        dataDeliveryMethod,
+        totalCombinedClientDays
+      )
     : "-";
 
   // 07) Toggle service in multi-select list
@@ -352,7 +365,7 @@ export default function BookingPortalPage() {
         packageType: combinedPackageTitle || "Custom Editing Package",
         serviceIds: selectedServiceIds,
         packagesList: packageNames,
-        editorDays: primaryService ? primaryService.editorDays : 4,
+        editorDays: totalCombinedEditorDays,
         clientDays: totalCombinedClientDays,
         deliveryMethod: dataDeliveryMethod,
         courierName:

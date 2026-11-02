@@ -25,7 +25,12 @@ interface AppState {
   holidays: StudioHoliday[];
 
   // Calculation & Slot Logic
-  calculateDeliveryDate: (serviceId: string, slotDateStr: string, deliveryMethod: "courier" | "online") => string;
+  calculateDeliveryDate: (
+    serviceId: string,
+    slotDateStr: string,
+    deliveryMethod: "courier" | "online",
+    customDays?: number
+  ) => string;
   getSlotAvailability: (dateStr: string) => {
     isAvailable: boolean;
     reason?: string;
@@ -188,9 +193,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Calculate Delivery Date with Holidays, Sundays, and Online buffer
   const calculateDeliveryDate = useCallback(
-    (serviceId: string, slotDateStr: string, deliveryMethod: "courier" | "online"): string => {
+    (
+      serviceId: string,
+      slotDateStr: string,
+      deliveryMethod: "courier" | "online",
+      customDays?: number
+    ): string => {
       const svc = services.find((s) => s.id === serviceId);
-      const standardDays = svc ? svc.clientDays : 5;
+      const standardDays =
+        customDays !== undefined && customDays > 0
+          ? customDays
+          : svc
+          ? svc.clientDays
+          : 5;
 
       const cursor = new Date(`${slotDateStr}T00:00:00`);
       let countedDays = 0;
