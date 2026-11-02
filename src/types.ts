@@ -9,8 +9,30 @@ export interface StaffMember {
   password: string;    // Email & Password login
   role: Role;
   baseSalary: number;  // Monthly base salary
+  phone?: string;
   avatar?: string;
   isActive: boolean;
+  joinedDate?: string;
+}
+
+// ─── Leave Requests (રજા અરજી) ───────────────────────────────────
+
+export type LeaveType = "casual" | "sick" | "emergency" | "planned";
+export type LeaveStatus = "pending" | "approved" | "rejected";
+
+export interface LeaveRequest {
+  id: string;
+  staffId: string;
+  staffName: string;
+  startDate: string;   // YYYY-MM-DD
+  endDate: string;     // YYYY-MM-DD
+  totalDays: number;
+  reason: string;
+  type: LeaveType;
+  status: LeaveStatus;
+  adminComment?: string;
+  createdAt: string;   // ISO
+  reviewedAt?: string; // ISO
 }
 
 // ─── Clients Directory (Auto-synced into RSE | OS) ─────────────
@@ -143,4 +165,5 @@ export interface AttendanceRecord {
   date: string;       // YYYY-MM-DD
   punchIn: string;    // ISO
   punchOut?: string;  // ISO
+  device?: "mac" | "iphone" | "workstation";
 }

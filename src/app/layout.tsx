@@ -38,6 +38,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://book.rsegnr.in",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "RSE | OS",
+  },
   robots: {
     index: true,
     follow: true,

@@ -255,14 +255,12 @@ export default function BookingPortalPage() {
       : 4;
 
   // Combined Promised Turnaround to Client:
-  // Base = maximum turnaround of selected services, plus +1 day buffer for each additional deliverable
-  // (e.g. Wedding Short Film (6d) + Teaser (2d) + Reel (1d) = 6 + 2 = 8 working days)
-  const baseClientDays =
+  // Direct sum of turnaround days for all selected deliverables
+  // (e.g. Wedding Highlight (4d) + Traditional Film (5d) = 4 + 5 = 9 working days)
+  const totalCombinedClientDays =
     selectedServicesList.length > 0
-      ? Math.max(...selectedServicesList.map((s) => s.clientDays || 4), 4)
+      ? selectedServicesList.reduce((sum, s) => sum + (s.clientDays || 4), 0)
       : 0;
-  const extraServicesBuffer = Math.max(0, selectedServicesList.length - 1);
-  const totalCombinedClientDays = baseClientDays + extraServicesBuffer;
 
   // Delivery date calculation passing the accurate combined days
   const promisedDeliveryDate = primaryService
@@ -440,12 +438,23 @@ export default function BookingPortalPage() {
             clientEmail: newBooking.email,
             clientName: newBooking.coupleNames,
             studioName: newBooking.studioOrClient,
+            contactPerson: newBooking.contactPerson,
+            phone: newBooking.phone,
+            city: newBooking.city,
+            country: newBooking.country,
             slotDate: newBooking.slotDate,
             deliveryDate: newBooking.deliveryDate,
+            clientDays: totalCombinedClientDays,
             packageName: newBooking.packageType,
             region: newBooking.region,
             pricing: newBooking.pricing,
             deliveryMethod: newBooking.deliveryMethod,
+            courierName: newBooking.courierName,
+            docketNumber: newBooking.docketNumber,
+            rawLink: newBooking.rawLink,
+            cameraProfile: newBooking.cameraProfile,
+            songPreference: newBooking.songPreference,
+            notes: newBooking.notes,
             ndaAccepted: newBooking.ndaAccepted,
           }),
         });
@@ -2426,6 +2435,13 @@ export default function BookingPortalPage() {
           >
             Support: +91 93135 53726
           </a>
+          <span className="text-[#ccc]">•</span>
+          <Link
+            href="/os"
+            className="text-[#6b2e4c] font-semibold hover:underline"
+          >
+            Studio Staff • RSE | OS
+          </Link>
         </div>
         <p className="text-[11px] text-[#999] pt-1">
           © {new Date().getFullYear()} RSE Post Production House. All rights reserved. 100% NDA Protected.

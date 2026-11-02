@@ -188,6 +188,9 @@ export const STUDIO_CONFIG = {
   DAILY_MAX_SLOTS: 3,           // 3 active concurrent edits per day
   MIN_LEAD_DAYS: 3,             // Clients cannot book today or next 3 days
   ONLINE_INGEST_BUFFER_DAYS: 1.5,// 1.5 days added to delivery if online transfer
+  COURIER_BUFFER_DAYS: 2,       // 2 days courier buffer
+  DELIVERY_BUFFER_DAYS: 1,      // 1 day delivery QA buffer
+  FRAME_IO_EXPIRY_DAYS: 7,      // 7-day Frame.io review timer
   REVISION_DEADLINE_DAYS: 7,    // Client has 7 days to review on Frame.io
   SATURDAY_IS_CORRECTION_DAY: true,
   PAYMENT_ADVANCE_PERCENT: 50,  // 50% on booking

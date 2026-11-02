@@ -1,4 +1,4 @@
-import { StaffMember, Booking, AttendanceRecord, Client } from "@/types";
+import { StaffMember, Booking, AttendanceRecord, Client, LeaveRequest } from "@/types";
 
 // ─── Staff with Email, Password & Base Salary ───────────────────
 
@@ -275,17 +275,51 @@ export const SEED_ATTENDANCE: AttendanceRecord[] = [
     staffId: "s1",
     date: today,
     punchIn: new Date().toISOString(),
+    device: "mac",
   },
   {
     id: "a2",
     staffId: "s2",
     date: today,
     punchIn: new Date(Date.now() - 3 * 3600000).toISOString(),
+    device: "iphone",
   },
   {
     id: "a3",
     staffId: "s3",
     date: today,
     punchIn: new Date(Date.now() - 2.5 * 3600000).toISOString(),
+    device: "workstation",
+  },
+];
+
+// ─── Seed Leaves (રજા અરજી) ──────────────────────────────────────
+
+export const SEED_LEAVES: LeaveRequest[] = [
+  {
+    id: "lv-1",
+    staffId: "s2",
+    staffName: "Smit Shah",
+    startDate: "2026-11-14",
+    endDate: "2026-11-15",
+    totalDays: 2,
+    reason: "Family function in Rajkot",
+    type: "planned",
+    status: "approved",
+    adminComment: "Approved. Kabir & Meera cut must be ready before leaving.",
+    createdAt: "2026-10-26T10:00:00Z",
+    reviewedAt: "2026-10-26T14:30:00Z",
+  },
+  {
+    id: "lv-2",
+    staffId: "s3",
+    staffName: "Rohit Varma",
+    startDate: "2026-11-20",
+    endDate: "2026-11-21",
+    totalDays: 2,
+    reason: "Personal medical checkup",
+    type: "sick",
+    status: "pending",
+    createdAt: "2026-10-29T11:20:00Z",
   },
 ];
