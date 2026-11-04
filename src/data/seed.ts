@@ -108,7 +108,7 @@ export const SEED_CLIENTS: Client[] = [
 export const SEED_BOOKINGS: Booking[] = [
   {
     id: "b1",
-    code: "RSE-001",
+    code: "RSE/NOV/001",
     source: "website",
     region: "foreign",
     customerType: "existing",
@@ -148,7 +148,7 @@ export const SEED_BOOKINGS: Booking[] = [
   },
   {
     id: "b2",
-    code: "RSE-002",
+    code: "RSE/NOV/002",
     source: "manual",
     region: "indian",
     customerType: "existing",
@@ -187,7 +187,7 @@ export const SEED_BOOKINGS: Booking[] = [
   },
   {
     id: "b3",
-    code: "RSE-003",
+    code: "RSE/NOV/003",
     source: "website",
     region: "indian",
     customerType: "existing",
@@ -224,7 +224,7 @@ export const SEED_BOOKINGS: Booking[] = [
   },
   {
     id: "b4",
-    code: "RSE-004",
+    code: "RSE/NOV/004",
     source: "website",
     region: "foreign",
     customerType: "new",

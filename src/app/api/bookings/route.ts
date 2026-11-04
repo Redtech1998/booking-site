@@ -108,14 +108,11 @@ export async function GET(req: NextRequest) {
         let hasNew = false;
         for (const rb of remoteBookings) {
           if (rb.id && !mongoMap.has(rb.id)) {
-            // Ensure unique code if collision
-            const existingCodes = new Set(Array.from(mongoMap.values()).map((x) => x.code));
-            if (existingCodes.has(rb.code)) {
-              let nextNum = mongoMap.size + 1;
-              while (existingCodes.has(`RSE-${String(nextNum).padStart(3, "0")}`)) {
-                nextNum++;
-              }
-              rb.code = `RSE-${String(nextNum).padStart(3, "0")}`;
+            // Ensure format RSE/<MONTH>/<SEQ> and uniqueness
+            const existingCodes = new Set(Array.from(mongoMap.values()).map((x) => (x.code || "").toUpperCase()));
+            const isInvalidFormat = !rb.code || !/^RSE\/[A-Z]{3}\/\d{3}$/.test(rb.code);
+            if (isInvalidFormat || existingCodes.has(rb.code.toUpperCase())) {
+              rb.code = generateBookingCode(rb.slotDate || rb.eventDate, Array.from(mongoMap.values()));
             }
 
             mongoMap.set(rb.id, rb);
@@ -208,9 +205,10 @@ export async function POST(req: NextRequest) {
       const isCodeTaken =
         !assignedCode ||
         current.some((b) => b.code.toUpperCase() === String(assignedCode).toUpperCase());
+      const isInvalidFormat = !assignedCode || !/^RSE\/[A-Z]{3}\/\d{3}$/.test(assignedCode);
 
-      if (isCodeTaken) {
-        assignedCode = generateBookingCode(body.slotDate, current);
+      if (isCodeTaken || isInvalidFormat) {
+        assignedCode = generateBookingCode(body.slotDate || body.eventDate, current);
       }
 
       finalBooking = {
