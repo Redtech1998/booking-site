@@ -112,7 +112,7 @@
     "slotDate": "2026-11-06",
     "songPreference": "Gujarati Traditional Lagna Geet + Shehnai",
     "source": "website",
-    "status": "new_deposit_pending",
+    "status": "awaiting_footage",
     "studioOrClient": "Heritage Frames, Ahmedabad"
   },
   {
@@ -522,5 +522,50 @@
     "source": "manual",
     "status": "new_deposit_pending",
     "studioOrClient": "ડેમો "
+  },
+  {
+    "id": "b_1793815502723",
+    "cameraProfile": "Sony S-Log3 / S-Gamut3.Cine",
+    "city": "gandhinagr",
+    "clientDays": 6,
+    "code": "RSE/MAR/001",
+    "contactPerson": "keyur",
+    "country": "India",
+    "coupleNames": "rse Wedding Film",
+    "courierName": "Courier Delivery (Advance Booking - Will ship before slot)",
+    "createdAt": "2026-11-04T18:05:02.723Z",
+    "customerType": "new",
+    "deliveryDate": "2027-03-11",
+    "deliveryMethod": "courier",
+    "docketNumber": "Will share on WhatsApp before cut-off",
+    "editorDays": 4,
+    "email": "Keyur@rse-edit.com",
+    "eventDate": "2027-03-05",
+    "notes": "",
+    "packageType": "Wedding Short Film",
+    "packagesList": [
+      "Wedding Short Film"
+    ],
+    "phone": "+918866323567",
+    "pricing": {
+      "totalAmount": 38000,
+      "advanceAmount": 19000,
+      "finalAmount": 19000,
+      "advancePaid": false,
+      "finalPaid": false,
+      "currency": "INR"
+    },
+    "rawLink": "Physical HDD (Advance Booking - Courier)",
+    "region": "indian",
+    "rseDriveRequested": false,
+    "serviceId": "in_wedding_short_film",
+    "serviceIds": [
+      "in_wedding_short_film"
+    ],
+    "slotDate": "2027-03-05",
+    "songPreference": "Share songs via WhatsApp Studio Group",
+    "source": "website",
+    "status": "new_deposit_pending",
+    "studioOrClient": "rse"
   }
 ]

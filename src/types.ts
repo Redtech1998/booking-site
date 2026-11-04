@@ -90,6 +90,8 @@ export interface ReminderLog {
   message: string;
 }
 
+export type SsdStatus = "not_sent" | "in_transit" | "received" | "dispatched_back";
+
 export interface Booking {
   id: string;
   code: string;                  // RSE/NOV/029, RSE/DEC/001 …
@@ -133,6 +135,12 @@ export interface Booking {
   songPreference?: string;
   notes: string;
 
+  // SSD & Courier Physical Tracking
+  ssdCourierCompany?: string;    // e.g. "Tirupati", "DTDC", "Maruti", "By Hand"
+  ssdTrackingNumber?: string;    // Tracking / Docket No
+  ssdStatus?: SsdStatus;         // not_sent | in_transit | received | dispatched_back
+  ssdDispatchedDocket?: string;  // Return courier docket no
+
   // Legal & Terms
   ndaAccepted?: boolean;
   ndaAcceptedAt?: string;
@@ -148,6 +156,8 @@ export interface Booking {
   frameIoLink?: string;
   previewSentAt?: string;
   correctionDueAt?: string;      // 7-day countdown deadline
+  revisionRound?: number;        // 0 = v1 Initial, 1 = Rev 1, 2 = Rev 2 ...
+  revisionNotes?: string;        // Summary of feedback/changes
 
   // Delay & Reschedule Tracking
   delayDays?: number;            // Extra delay days cascaded from OS

@@ -57,6 +57,7 @@ interface AppState {
   // Live Website Cloud Sync
   syncLiveBookings: () => Promise<{ success: boolean; count: number; error?: string }>;
   isSyncing: boolean;
+  lastSyncedAt: Date | null;
 
   // Bookings Pipeline
   bookings: Booking[];
@@ -113,6 +114,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [holidays, setHolidays] = useState<StudioHoliday[]>(DEFAULT_HOLIDAYS);
   const [hydrated, setHydrated] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(new Date());
 
   // Hydrate from localStorage once on mount, then sync with server API
   useEffect(() => {
@@ -145,20 +147,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // Initial & continuous sync from local API & live website API
     const fetchBookings = async () => {
-      // 1. Local Server API
+      // 1. Local Server API (MongoDB Atlas synced)
       try {
         const res = await fetch("/api/bookings", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           if (data?.bookings && Array.isArray(data.bookings) && data.bookings.length > 0) {
-            setBookings((prev) => {
-              const map = new Map<string, Booking>();
-              for (const item of data.bookings) map.set(item.id, item);
-              for (const item of prev) {
-                if (!map.has(item.id)) map.set(item.id, item);
-              }
-              return Array.from(map.values());
-            });
+            setBookings(data.bookings);
+            setLastSyncedAt(new Date());
           }
         }
       } catch (_) {}
@@ -166,8 +162,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     fetchBookings();
 
-    // Auto-poll server every 12 seconds for cross-device booking sync
-    const interval = setInterval(fetchBookings, 12000);
+    // Auto-poll server every 15 seconds for continuous real-time cross-device sync
+    const interval = setInterval(fetchBookings, 15000);
     const handleSync = () => fetchBookings();
     window.addEventListener("focus", handleSync);
     window.addEventListener("storage", handleSync);
@@ -739,6 +735,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         if (data?.bookings && Array.isArray(data.bookings)) {
           setBookings(data.bookings);
+          setLastSyncedAt(new Date());
           setIsSyncing(false);
           return { success: true, count: data.bookings.length };
         }
@@ -800,6 +797,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         bookings,
         syncLiveBookings,
         isSyncing,
+        lastSyncedAt,
         addBooking,
         updateBooking,
         deleteBooking,
