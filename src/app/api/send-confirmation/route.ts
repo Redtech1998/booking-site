@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { sendZohoEmail } from "@/lib/zohoMail";
+import { createWhatsAppChatUrl } from "@/lib/phone";
 
 export async function POST(req: Request) {
   try {
@@ -291,14 +292,16 @@ ${senderEmail} • https://rsegnr.in
 
     // 3. DISPATCH INSTANT ADMIN ALERT EMAIL TO RSE STUDIO TEAM
     try {
-      const cleanPhone = phone ? String(phone).replace(/\D/g, "") : "";
-      const waLink = cleanPhone
-        ? `https://wa.me/${cleanPhone}?text=Hi%20${encodeURIComponent(
-            studioName || clientName
-          )},%20we%20have%20received%20your%20editing%20slot%20booking%20${bookingCode}%20for%20${encodeURIComponent(
-            clientName
-          )}%20at%20RSE%20Post%20Production%20House!`
-        : "";
+      const {
+        cleanDigits,
+        formattedDisplay,
+        url: waLink,
+      } = createWhatsAppChatUrl(phone, {
+        country,
+        region,
+        city,
+        message: `Hi ${studioName || clientName}, we have received your editing slot booking ${bookingCode} for ${clientName} at RSE Post Production House!`,
+      });
 
       const adminSubject = `🔔 [NEW BOOKING] ${bookingCode} • ${studioName || clientName} (${packageName})`;
 
@@ -310,7 +313,7 @@ CLIENT & STUDIO DETAILS:
 Studio / Brand: ${studioName || "-"}
 Contact Person: ${contactPerson || studioName || "-"}
 Couple / Project: ${clientName || "-"}
-Phone / WhatsApp: ${phone || "-"}
+Phone / WhatsApp: ${formattedDisplay || phone || "-"}
 Email: ${clientEmail}
 Location: ${city ? `${city}, ` : ""}${country || "India"}
 
@@ -365,8 +368,8 @@ ${waLink || "Phone not provided"}
         <p style="margin: 0 0 10px; font-size: 13px; color: #065f46; font-weight: 600;">
           📲 Connect with filmmaker on WhatsApp:
         </p>
-        <a href="${waLink}" style="display: inline-block; background-color: #22c55e; color: #ffffff; padding: 10px 22px; border-radius: 10px; font-weight: bold; font-size: 13px; text-decoration: none; box-shadow: 0 2px 8px rgba(34,197,94,0.3);">
-          Open WhatsApp Chat (${phone}) ↗
+        <a href="${waLink}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #22c55e; color: #ffffff; padding: 10px 22px; border-radius: 10px; font-weight: bold; font-size: 13px; text-decoration: none; box-shadow: 0 2px 8px rgba(34,197,94,0.3);">
+          Open WhatsApp Chat (${formattedDisplay || cleanDigits || phone}) ↗
         </a>
       </div>
       `
@@ -393,7 +396,7 @@ ${waLink || "Phone not provided"}
           </tr>
           <tr style="border-bottom: 1px solid #f4f4f5;">
             <td style="padding: 8px 0; color: #71717a;">WhatsApp Phone</td>
-            <td style="padding: 8px 0; font-weight: bold; color: #09090b; font-family: monospace;">${phone || "-"}</td>
+            <td style="padding: 8px 0; font-weight: bold; color: #09090b; font-family: monospace;">${formattedDisplay || phone || "-"}</td>
           </tr>
           <tr style="border-bottom: 1px solid #f4f4f5;">
             <td style="padding: 8px 0; color: #71717a;">Email Address</td>

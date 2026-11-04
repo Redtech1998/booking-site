@@ -10,6 +10,12 @@ import {
 } from "@/data/servicesData";
 import { RegionType, DeliveryMethod, Booking } from "@/types";
 import {
+  detectDialCode,
+  normalizeWhatsAppDigits,
+  formatPhoneDisplay,
+  COUNTRIES,
+} from "@/lib/phone";
+import {
   Calendar as CalendarIcon,
   Clock,
   Phone,
@@ -308,19 +314,23 @@ export default function BookingPortalPage() {
     }
   };
 
-  // 04) Country Change Handler (sets default phone codes)
+  // Auto-detected dial code & country info for smart WhatsApp handling
+  const dialInfo = detectDialCode(country, region || undefined, city);
+
+  // 04) Country Change Handler (sets default phone codes & adjusts existing)
   const handleCountryChange = (cName: string) => {
     setCountry(cName);
-    if (!whatsappNumber || whatsappNumber.startsWith("+")) {
-      const codes: Record<string, string> = {
-        "United States": "+1 ",
-        "Canada": "+1 ",
-        "United Kingdom": "+44 ",
-        "Australia": "+61 ",
-        "United Arab Emirates": "+971 ",
-        "India": "+91 ",
-      };
-      if (codes[cName]) setWhatsappNumber(codes[cName]);
+    if (whatsappNumber.trim()) {
+      setWhatsappNumber(formatPhoneDisplay(whatsappNumber, cName, region || undefined, city));
+    }
+  };
+
+  // Format phone cleanly when user finishes typing
+  const handlePhoneBlur = () => {
+    if (!whatsappNumber.trim()) return;
+    const formatted = formatPhoneDisplay(whatsappNumber, country, region || undefined, city);
+    if (formatted) {
+      setWhatsappNumber(formatted);
     }
   };
 
@@ -337,6 +347,19 @@ export default function BookingPortalPage() {
 
     setIsSubmitting(true);
     try {
+      const normalizedPhone = formatPhoneDisplay(
+        whatsappNumber,
+        country,
+        region || undefined,
+        city
+      );
+      const cleanDigits = normalizeWhatsAppDigits(
+        whatsappNumber,
+        country,
+        region || undefined,
+        city
+      );
+
       const packageNames = selectedServicesList.map((s) => s.name);
       const combinedPackageTitle = packageNames.join(" + ");
       const totalBasePrice = selectedServicesList.reduce(
@@ -353,8 +376,8 @@ export default function BookingPortalPage() {
         coupleNames: coupleNames.trim() || `${studioName} Wedding Film`,
         studioOrClient: studioName.trim(),
         contactPerson: contactPerson.trim(),
-        phone: whatsappNumber.trim(),
-        email: clientEmail.trim() || `${whatsappNumber.replace(/\D/g, "")}@rseclient.in`,
+        phone: normalizedPhone || whatsappNumber.trim(),
+        email: clientEmail.trim() || `${cleanDigits || whatsappNumber.replace(/\D/g, "")}@rseclient.in`,
         country,
         city,
         whatsappGroupUrl: savedWhatsAppGroupUrl || undefined,
@@ -1567,20 +1590,40 @@ export default function BookingPortalPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-[#6b2e4c] flex items-center space-x-1.5">
-                      <Phone size={16} />
-                      <span>WhatsApp Number (with country code) *</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-[#6b2e4c] flex items-center space-x-1.5">
+                        <Phone size={16} />
+                        <span>WhatsApp Number *</span>
+                      </label>
+                      <span className="text-[11px] font-semibold text-[#6b2e4c] bg-[#f5e6cc]/80 px-2 py-0.5 rounded-md flex items-center space-x-1">
+                        <span>{dialInfo.flag}</span>
+                        <span>+{dialInfo.dialCode} ({dialInfo.countryName})</span>
+                      </span>
+                    </div>
                     <input
                       type="tel"
                       required
                       value={whatsappNumber}
                       onChange={handlePhoneChange}
-                      placeholder={region === "foreign" ? "+1 555 0199 / +44 77..." : "+91 98250 11999"}
+                      onBlur={handlePhoneBlur}
+                      placeholder={
+                        COUNTRIES[(country || "").toLowerCase()]?.placeholder ||
+                        `+${dialInfo.dialCode} 98250 11999`
+                      }
                       className="w-full border-2 border-[#e5e5e5] focus:border-[#a83d5b] rounded-xl px-3.5 py-2.5 text-xs text-[#0f0f10] font-mono outline-none"
                     />
                     <span className="text-[11px] text-[#666] block">
-                      We will contact you on WhatsApp for project updates
+                      {whatsappNumber.trim() && !whatsappNumber.trim().startsWith("+") ? (
+                        <span className="text-[#166534] font-medium">
+                          ✓ Auto country code: will connect as{" "}
+                          <strong className="font-mono">
+                            {formatPhoneDisplay(whatsappNumber, country, region || undefined, city)}
+                          </strong>{" "}
+                          on WhatsApp
+                        </span>
+                      ) : (
+                        "We will contact you directly on WhatsApp for daily edit updates & preview links"
+                      )}
                     </span>
                   </div>
 
@@ -2191,7 +2234,9 @@ export default function BookingPortalPage() {
                     </div>
                     <div>
                       <span className="text-[#666] block">WhatsApp:</span>
-                      <strong className="text-[#0f0f10] font-mono">{whatsappNumber}</strong>
+                      <strong className="text-[#0f0f10] font-mono">
+                        {formatPhoneDisplay(whatsappNumber, country, region || undefined, city) || whatsappNumber}
+                      </strong>
                     </div>
                     <div>
                       <span className="text-[#666] block">Deliverables ({selectedServicesList.length}):</span>
