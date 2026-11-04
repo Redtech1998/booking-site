@@ -67,11 +67,71 @@ export async function OPTIONS() {
 
 // GET /api/bookings -> returns all synchronized bookings with automatic 2-way cloud sync
 export async function GET(req: NextRequest) {
-  // 1. Try MongoDB Atlas if configured
+  const host = req.headers.get("host") || "";
+  const isLocalServer = !host.includes("book.rsegnr.in");
+
+  // 1. If local server, ALWAYS poll remote book.rsegnr.in to pull newly submitted client forms
+  let remoteBookings: Booking[] = [];
+  if (isLocalServer) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(REMOTE_BOOKINGS_URL, {
+        signal: controller.signal,
+        cache: "no-store",
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.bookings && Array.isArray(data.bookings) && data.bookings.length > 0) {
+          remoteBookings = data.bookings;
+        }
+      }
+    } catch (_) {
+      // Offline fallback: continue with cloud / local data
+    }
+  }
+
+  // 2. Try MongoDB Atlas if configured
   if (isMongoConfigured()) {
     try {
-      const mongoBookings = await fetchBookingsFromMongo();
-      if (mongoBookings && mongoBookings.length > 0) {
+      let mongoBookings = (await fetchBookingsFromMongo()) || [];
+
+      // Auto-ingest any new bookings discovered on remote live website into MongoDB Atlas
+      if (remoteBookings.length > 0) {
+        const mongoMap = new Map<string, Booking>();
+        for (const b of mongoBookings) {
+          if (b.id) mongoMap.set(b.id, b);
+        }
+
+        let hasNew = false;
+        for (const rb of remoteBookings) {
+          if (rb.id && !mongoMap.has(rb.id)) {
+            // Ensure unique code if collision
+            const existingCodes = new Set(Array.from(mongoMap.values()).map((x) => x.code));
+            if (existingCodes.has(rb.code)) {
+              let nextNum = mongoMap.size + 1;
+              while (existingCodes.has(`RSE-${String(nextNum).padStart(3, "0")}`)) {
+                nextNum++;
+              }
+              rb.code = `RSE-${String(nextNum).padStart(3, "0")}`;
+            }
+
+            mongoMap.set(rb.id, rb);
+            await saveBookingToMongo(rb);
+            hasNew = true;
+          }
+        }
+
+        if (hasNew) {
+          mongoBookings = Array.from(mongoMap.values()).sort(
+            (a, b) => new Date(a.slotDate || 0).getTime() - new Date(b.slotDate || 0).getTime()
+          );
+        }
+      }
+
+      if (mongoBookings.length > 0) {
         saveBookings(mongoBookings); // Local backup
         return NextResponse.json(
           {
@@ -82,7 +142,7 @@ export async function GET(req: NextRequest) {
           },
           { headers: CORS_HEADERS }
         );
-      } else if (mongoBookings && mongoBookings.length === 0) {
+      } else if (mongoBookings.length === 0) {
         const local = loadStoredBookings();
         await syncLocalBookingsToMongo(local);
         return NextResponse.json(
@@ -96,49 +156,27 @@ export async function GET(req: NextRequest) {
         );
       }
     } catch (_) {
-      // Fallback to local
+      // Fallback to local file
     }
   }
 
-  // 2. Fallback: Local file + 2-Way Live Sync with book.rsegnr.in
+  // 3. Fallback: Local file + 2-Way Live Sync with book.rsegnr.in
   let current = loadStoredBookings();
-  const host = req.headers.get("host") || "";
-  const isLocalServer = !host.includes("book.rsegnr.in");
-
-  if (isLocalServer) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      const res = await fetch(REMOTE_BOOKINGS_URL, {
-        signal: controller.signal,
-        cache: "no-store",
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.bookings && Array.isArray(data.bookings) && data.bookings.length > 0) {
-          const map = new Map<string, Booking>();
-          // 1. Remote bookings from book.rsegnr.in
-          for (const b of data.bookings) {
-            if (b.id) map.set(b.id, b);
-          }
-          // 2. Overlay local bookings (preserves editor assignments, status, stages)
-          for (const b of current) {
-            if (b.id) {
-              const remoteMatch = map.get(b.id);
-              map.set(b.id, remoteMatch ? { ...remoteMatch, ...b } : b);
-            }
-          }
-          current = Array.from(map.values()).sort(
-            (a, b) => new Date(a.slotDate || 0).getTime() - new Date(b.slotDate || 0).getTime()
-          );
-          saveBookings(current);
-        }
-      }
-    } catch (_) {
-      // Offline fallback: returns stored local bookings
+  if (remoteBookings.length > 0) {
+    const map = new Map<string, Booking>();
+    for (const b of remoteBookings) {
+      if (b.id) map.set(b.id, b);
     }
+    for (const b of current) {
+      if (b.id) {
+        const remoteMatch = map.get(b.id);
+        map.set(b.id, remoteMatch ? { ...remoteMatch, ...b } : b);
+      }
+    }
+    current = Array.from(map.values()).sort(
+      (a, b) => new Date(a.slotDate || 0).getTime() - new Date(b.slotDate || 0).getTime()
+    );
+    saveBookings(current);
   }
 
   return NextResponse.json(
