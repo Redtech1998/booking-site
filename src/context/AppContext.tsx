@@ -99,8 +99,8 @@ interface AppState {
 const Ctx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  // Authentication & Staff
-  const [currentUser, setCurrentUser] = useState<StaffMember | null>(null);
+  // Authentication & Staff (Default to Studio Admin Harsh Patel for instant workstation access)
+  const [currentUser, setCurrentUser] = useState<StaffMember | null>(SEED_STAFF[0]);
   const [staff, setStaff] = useState<StaffMember[]>(SEED_STAFF);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(SEED_ATTENDANCE);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(SEED_LEAVES);

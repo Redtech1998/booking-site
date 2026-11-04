@@ -200,7 +200,18 @@ export function detectDialCode(
  * E.g. "98250 11999" with country India -> "919825011999"
  * E.g. "+91 98250 11999" -> "919825011999"
  * E.g. "0412 345 678" with country Australia -> "61412345678"
+ * E.g. "૮૮૬૬૩૨૩૫૬૭" (Gujarati numerals) -> "918866323567"
  */
+export function convertIndicDigitsToAscii(str: string): string {
+  const indicDigits: Record<string, string> = {
+    "૦": "0", "૧": "1", "૨": "2", "૩": "3", "૪": "4",
+    "૫": "5", "૬": "6", "૭": "7", "૮": "8", "૯": "9",
+    "०": "0", "१": "1", "२": "2", "३": "3", "४": "4",
+    "५": "5", "६": "6", "७": "7", "८": "8", "९": "9",
+  };
+  return str.replace(/[૦-૯०-९]/g, (ch) => indicDigits[ch] || ch);
+}
+
 export function normalizeWhatsAppDigits(
   rawPhone?: string | null,
   country?: string,
@@ -208,7 +219,8 @@ export function normalizeWhatsAppDigits(
   city?: string
 ): string {
   if (!rawPhone) return "";
-  const trimmed = String(rawPhone).trim();
+  const converted = convertIndicDigitsToAscii(String(rawPhone));
+  const trimmed = converted.trim();
   if (!trimmed) return "";
 
   // If user explicitly provided a '+' prefix, they specified their own country code

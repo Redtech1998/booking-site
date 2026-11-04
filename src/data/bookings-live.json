@@ -491,5 +491,36 @@
     "source": "website",
     "status": "new_deposit_pending",
     "studioOrClient": "Demo"
+  },
+  {
+    "id": "b_1793812278627",
+    "clientDays": 5,
+    "code": "RSE/JAN/001",
+    "coupleNames": "ડેમો ",
+    "createdAt": "2026-11-04T17:11:18.627Z",
+    "customerType": "existing",
+    "deliveryDate": "2027-01-17",
+    "deliveryMethod": "courier",
+    "editorDays": 3,
+    "email": "",
+    "eventDate": "2026-11-01",
+    "notes": "ડેમો..",
+    "packageType": "DaVinci Color Grading",
+    "phone": "+91 88663 23567",
+    "pricing": {
+      "totalAmount": 25000,
+      "advanceAmount": 12500,
+      "finalAmount": 12500,
+      "advancePaid": true,
+      "finalPaid": false,
+      "currency": "USD"
+    },
+    "rawLink": "https://drive.google.com/sample",
+    "region": "foreign",
+    "serviceId": "manual_custom",
+    "slotDate": "2027-01-13",
+    "source": "manual",
+    "status": "new_deposit_pending",
+    "studioOrClient": "ડેમો "
   }
 ]
