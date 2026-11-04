@@ -91,6 +91,19 @@ export async function saveBookingToMongo(booking: Booking): Promise<boolean> {
   }
 }
 
+export async function deleteBookingFromMongo(id: string): Promise<boolean> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return false;
+    const collection = db.collection("bookings");
+    await collection.deleteOne({ id });
+    return true;
+  } catch (err) {
+    console.warn("Error deleting booking from MongoDB:", err);
+    return false;
+  }
+}
+
 export async function syncLocalBookingsToMongo(localList: Booking[]): Promise<number> {
   try {
     const db = await getMongoDb();

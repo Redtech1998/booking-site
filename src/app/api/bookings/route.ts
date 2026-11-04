@@ -8,6 +8,7 @@ import {
   isMongoConfigured,
   fetchBookingsFromMongo,
   saveBookingToMongo,
+  deleteBookingFromMongo,
   syncLocalBookingsToMongo,
 } from "@/lib/mongodb";
 
@@ -249,6 +250,38 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || "Failed to sync booking" },
+      { status: 500, headers: CORS_HEADERS }
+    );
+  }
+}
+
+// DELETE /api/bookings?id=<id> -> deletes a booking by id
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Missing booking id" },
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    const current = loadStoredBookings();
+    const updatedList = current.filter((b) => b.id !== id);
+    saveBookings(updatedList);
+
+    if (isMongoConfigured()) {
+      deleteBookingFromMongo(id).catch(() => {});
+    }
+
+    return NextResponse.json(
+      { success: true, message: "Booking deleted successfully", totalBookings: updatedList.length },
+      { headers: CORS_HEADERS }
+    );
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || "Failed to delete booking" },
       { status: 500, headers: CORS_HEADERS }
     );
   }

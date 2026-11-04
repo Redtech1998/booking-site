@@ -62,6 +62,7 @@ interface AppState {
   bookings: Booking[];
   addBooking: (b: Omit<Booking, "id" | "code" | "createdAt">) => Booking;
   updateBooking: (b: Booking) => void;
+  deleteBooking: (id: string) => void;
   updateBookingStatus: (id: string, status: BookingStatus) => void;
   assignBooking: (id: string, staffId: string) => void;
   updateFrameIo: (id: string, frameIoLink: string) => void;
@@ -582,6 +583,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Delete Booking (Admin)
+  const deleteBooking = useCallback((id: string) => {
+    setBookings((prev) => {
+      const updated = prev.filter((b) => b.id !== id);
+      if (typeof window !== "undefined") {
+        fetch(`/api/bookings?id=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        }).catch(() => {});
+      }
+      return updated;
+    });
+  }, []);
+
   // Update Booking Status
   const updateBookingStatus = useCallback(
     (id: string, status: BookingStatus) => {
@@ -788,6 +802,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isSyncing,
         addBooking,
         updateBooking,
+        deleteBooking,
         updateBookingStatus,
         assignBooking,
         updateFrameIo,
