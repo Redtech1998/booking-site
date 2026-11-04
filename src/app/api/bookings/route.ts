@@ -3,42 +3,42 @@ import { SEED_BOOKINGS } from "@/data/seed";
 import { Booking } from "@/types";
 import fs from "fs";
 import path from "path";
+import {
+  isMongoConfigured,
+  fetchBookingsFromMongo,
+  saveBookingToMongo,
+  syncLocalBookingsToMongo,
+} from "@/lib/mongodb";
 
-// In-memory server cache
-let serverBookings: Booking[] = [...SEED_BOOKINGS];
 const DATA_FILE = path.join(process.cwd(), "src/data/bookings-live.json");
 const TMP_FILE = "/tmp/rse_bookings_live.json";
 
 function loadStoredBookings(): Booking[] {
   try {
-    // Try persistent data file first
     if (fs.existsSync(DATA_FILE)) {
       const data = fs.readFileSync(DATA_FILE, "utf-8");
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        serverBookings = parsed;
-        return serverBookings;
+        return parsed;
       }
     }
   } catch (_) {}
 
   try {
-    // Fallback to /tmp for serverless runtime
     if (fs.existsSync(TMP_FILE)) {
       const data = fs.readFileSync(TMP_FILE, "utf-8");
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        serverBookings = parsed;
-        return serverBookings;
+        return parsed;
       }
     }
   } catch (_) {}
 
-  return serverBookings;
+  saveBookings([...SEED_BOOKINGS]);
+  return [...SEED_BOOKINGS];
 }
 
 function saveBookings(bookings: Booking[]) {
-  serverBookings = bookings;
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(bookings, null, 2), "utf-8");
   } catch (_) {}
@@ -48,66 +48,162 @@ function saveBookings(bookings: Booking[]) {
   } catch (_) {}
 }
 
-// Initial load
-loadStoredBookings();
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+};
 
-// GET /api/bookings -> returns all synchronized bookings
-export async function GET() {
-  const current = loadStoredBookings();
-  return NextResponse.json(
-    { success: true, count: current.length, bookings: current },
-    {
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate",
-      },
+const REMOTE_BOOKINGS_URL = "https://book.rsegnr.in/api/bookings";
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: CORS_HEADERS,
+  });
+}
+
+// GET /api/bookings -> returns all synchronized bookings with automatic 2-way cloud sync
+export async function GET(req: NextRequest) {
+  // 1. Try MongoDB Atlas if configured
+  if (isMongoConfigured()) {
+    try {
+      const mongoBookings = await fetchBookingsFromMongo();
+      if (mongoBookings && mongoBookings.length > 0) {
+        saveBookings(mongoBookings); // Local backup
+        return NextResponse.json(
+          {
+            success: true,
+            count: mongoBookings.length,
+            bookings: mongoBookings,
+            source: "mongodb_atlas",
+          },
+          { headers: CORS_HEADERS }
+        );
+      } else if (mongoBookings && mongoBookings.length === 0) {
+        const local = loadStoredBookings();
+        await syncLocalBookingsToMongo(local);
+        return NextResponse.json(
+          {
+            success: true,
+            count: local.length,
+            bookings: local,
+            source: "mongodb_atlas_seeded",
+          },
+          { headers: CORS_HEADERS }
+        );
+      }
+    } catch (_) {
+      // Fallback to local
     }
+  }
+
+  // 2. Fallback: Local file + 2-Way Live Sync with book.rsegnr.in
+  let current = loadStoredBookings();
+  const host = req.headers.get("host") || "";
+  const isLocalServer = !host.includes("book.rsegnr.in");
+
+  if (isLocalServer) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const res = await fetch(REMOTE_BOOKINGS_URL, {
+        signal: controller.signal,
+        cache: "no-store",
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.bookings && Array.isArray(data.bookings) && data.bookings.length > 0) {
+          const map = new Map<string, Booking>();
+          // 1. Remote bookings from book.rsegnr.in
+          for (const b of data.bookings) {
+            if (b.id) map.set(b.id, b);
+          }
+          // 2. Overlay local bookings (preserves editor assignments, status, stages)
+          for (const b of current) {
+            if (b.id) {
+              const remoteMatch = map.get(b.id);
+              map.set(b.id, remoteMatch ? { ...remoteMatch, ...b } : b);
+            }
+          }
+          current = Array.from(map.values()).sort(
+            (a, b) => new Date(a.slotDate || 0).getTime() - new Date(b.slotDate || 0).getTime()
+          );
+          saveBookings(current);
+        }
+      }
+    } catch (_) {
+      // Offline fallback: returns stored local bookings
+    }
+  }
+
+  return NextResponse.json(
+    { success: true, count: current.length, bookings: current, source: "live_synced" },
+    { headers: CORS_HEADERS }
   );
 }
 
-// POST /api/bookings -> creates or syncs a new booking (from internal OS or web)
+// POST /api/bookings -> creates or syncs a new booking
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const current = loadStoredBookings();
 
-    // Check if booking already exists (by id or code)
     const exists = current.find(
       (b) => (body.id && b.id === body.id) || (body.code && b.code === body.code)
     );
 
+    let finalBooking: Booking;
     let updatedList = [...current];
 
     if (exists) {
-      // Update existing
+      finalBooking = { ...exists, ...body };
       updatedList = updatedList.map((b) =>
-        b.id === exists.id ? { ...b, ...body } : b
+        b.id === exists.id ? finalBooking : b
       );
     } else {
-      // Add new booking
-      const newBooking: Booking = {
+      finalBooking = {
         ...body,
         id: body.id || `b_${Date.now()}`,
         code: body.code || `RSE-${String(current.length + 1).padStart(3, "0")}`,
         createdAt: body.createdAt || new Date().toISOString(),
       };
-      updatedList = [newBooking, ...updatedList];
+      updatedList = [finalBooking, ...updatedList];
     }
 
     saveBookings(updatedList);
+
+    // Save to MongoDB if available
+    if (isMongoConfigured()) {
+      saveBookingToMongo(finalBooking).catch(() => {});
+    }
+
+    // Forward to remote live website if local
+    const host = req.headers.get("host") || "";
+    if (!host.includes("book.rsegnr.in")) {
+      fetch(REMOTE_BOOKINGS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(finalBooking),
+      }).catch(() => {});
+    }
 
     return NextResponse.json(
       {
         success: true,
         message: "Booking synchronized successfully",
-        booking: body,
+        booking: finalBooking,
         totalBookings: updatedList.length,
       },
-      { status: 201 }
+      { status: 201, headers: CORS_HEADERS }
     );
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || "Failed to sync booking" },
-      { status: 500 }
+      { status: 500, headers: CORS_HEADERS }
     );
   }
 }

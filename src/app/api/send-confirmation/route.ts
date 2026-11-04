@@ -323,10 +323,6 @@ Data Ingest Method: ${deliveryMethodLabel}
 ${courierName || docketNumber ? `Courier Details: ${courierName || "Courier"} (Docket #${docketNumber || "Dispatched"})` : ""}
 ${rawLink ? `Cloud Drive Link: ${rawLink}` : ""}
 
-FINANCIALS:
-Total Project Value: ${pricing?.totalAmount ? (region === "foreign" ? `$${pricing.totalAmount}` : `₹${pricing.totalAmount.toLocaleString("en-IN")}`) : "Custom"}
-50% Advance Due: ${pricing?.advanceAmount ? (region === "foreign" ? `$${pricing.advanceAmount}` : `₹${pricing.advanceAmount.toLocaleString("en-IN")}`) : "Custom"}
-
 CREATIVE NOTES:
 Camera Profile / LUT: ${cameraProfile || "Standard / Unspecified"}
 Music Direction: ${songPreference || "Not specified"}
@@ -456,13 +452,6 @@ ${waLink || "Phone not provided"}
           `
               : ""
           }
-          <tr>
-            <td style="padding: 8px 0; color: #71717a;">Pricing Breakdown</td>
-            <td style="padding: 8px 0; font-weight: bold; color: #09090b;">
-              Total: ${pricing?.totalAmount ? (region === "foreign" ? `$${pricing.totalAmount}` : `₹${pricing.totalAmount.toLocaleString("en-IN")}`) : "Custom"} | 
-              <span style="color: #6b2e4c;">50% Advance: ${pricing?.advanceAmount ? (region === "foreign" ? `$${pricing.advanceAmount}` : `₹${pricing.advanceAmount.toLocaleString("en-IN")}`) : "Custom"}</span>
-            </td>
-          </tr>
         </tbody>
       </table>
 

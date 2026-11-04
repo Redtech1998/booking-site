@@ -416,9 +416,9 @@ export default function BookingPortalPage() {
         ndaAccepted: region === "foreign" ? true : undefined,
         ndaAcceptedAt: region === "foreign" ? new Date().toISOString() : undefined,
         pricing: {
-          totalAmount: totalBasePrice,
-          advanceAmount,
-          finalAmount,
+          totalAmount: 0,
+          advanceAmount: 0,
+          finalAmount: 0,
           advancePaid: false,
           finalPaid: false,
           currency: region === "foreign" ? "USD" : "INR",
@@ -428,7 +428,7 @@ export default function BookingPortalPage() {
 
       setConfirmedBooking(newBooking);
 
-      // Call Zoho Confirmation API in background
+      // Call Zoho Confirmation API in background (No pricing sent - purely production slot details)
       try {
         await fetch("/api/send-confirmation", {
           method: "POST",
@@ -447,7 +447,6 @@ export default function BookingPortalPage() {
             clientDays: totalCombinedClientDays,
             packageName: newBooking.packageType,
             region: newBooking.region,
-            pricing: newBooking.pricing,
             deliveryMethod: newBooking.deliveryMethod,
             courierName: newBooking.courierName,
             docketNumber: newBooking.docketNumber,

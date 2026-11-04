@@ -53,9 +53,14 @@ interface AppState {
     adminComment?: string
   ) => void;
 
+  // Live Website Cloud Sync
+  syncLiveBookings: () => Promise<{ success: boolean; count: number; error?: string }>;
+  isSyncing: boolean;
+
   // Bookings Pipeline
   bookings: Booking[];
   addBooking: (b: Omit<Booking, "id" | "code" | "createdAt">) => Booking;
+  updateBooking: (b: Booking) => void;
   updateBookingStatus: (id: string, status: BookingStatus) => void;
   assignBooking: (id: string, staffId: string) => void;
   updateFrameIo: (id: string, frameIoLink: string) => void;
@@ -105,6 +110,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [services, setServices] = useState<ServiceDefinition[]>(ALL_SERVICES);
   const [holidays, setHolidays] = useState<StudioHoliday[]>(DEFAULT_HOLIDAYS);
   const [hydrated, setHydrated] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Hydrate from localStorage once on mount, then sync with server API
   useEffect(() => {
@@ -135,14 +141,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
     setHydrated(true);
 
-    // Initial fetch from server API
+    // Initial & continuous sync from local API & live website API
     const fetchBookings = async () => {
+      // 1. Local Server API
       try {
         const res = await fetch("/api/bookings", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           if (data?.bookings && Array.isArray(data.bookings) && data.bookings.length > 0) {
-            setBookings(data.bookings);
+            setBookings((prev) => {
+              const map = new Map<string, Booking>();
+              for (const item of data.bookings) map.set(item.id, item);
+              for (const item of prev) {
+                if (!map.has(item.id)) map.set(item.id, item);
+              }
+              return Array.from(map.values());
+            });
           }
         }
       } catch (_) {}
@@ -150,8 +164,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     fetchBookings();
 
-    // Auto-poll server every 25 seconds for cross-device booking sync
-    const interval = setInterval(fetchBookings, 25000);
+    // Auto-poll server every 12 seconds for cross-device booking sync
+    const interval = setInterval(fetchBookings, 12000);
     const handleSync = () => fetchBookings();
     window.addEventListener("focus", handleSync);
     window.addEventListener("storage", handleSync);
@@ -552,6 +566,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [bookings.length]
   );
 
+  // Update Booking Complete
+  const updateBooking = useCallback((updatedBooking: Booking) => {
+    setBookings((prev) => {
+      const updated = prev.map((b) => (b.id === updatedBooking.id ? updatedBooking : b));
+      if (typeof window !== "undefined") {
+        fetch("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedBooking),
+        }).catch(() => {});
+      }
+      return updated;
+    });
+  }, []);
+
   // Update Booking Status
   const updateBookingStatus = useCallback(
     (id: string, status: BookingStatus) => {
@@ -686,6 +715,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [bookings]
   );
 
+  // Manual / On-Demand Sync with live book.rsegnr.in
+  const syncLiveBookings = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch("/api/bookings", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.bookings && Array.isArray(data.bookings)) {
+          setBookings(data.bookings);
+          setIsSyncing(false);
+          return { success: true, count: data.bookings.length };
+        }
+      }
+      setIsSyncing(false);
+      return { success: false, count: 0, error: "સિન્ક નિષ્ફળ રહ્યું" };
+    } catch (err: any) {
+      setIsSyncing(false);
+      return { success: false, count: 0, error: err?.message || "સિન્ક ભૂલ" };
+    }
+  }, []);
+
   // Update Client WhatsApp Group Link
   const updateClientWhatsAppGroup = useCallback(
     (clientId: string, groupUrl: string) => {
@@ -733,7 +783,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         submitLeaveRequest,
         updateLeaveStatus,
         bookings,
+        syncLiveBookings,
+        isSyncing,
         addBooking,
+        updateBooking,
         updateBookingStatus,
         assignBooking,
         updateFrameIo,
