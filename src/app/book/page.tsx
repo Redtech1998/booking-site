@@ -2310,12 +2310,12 @@ export default function BookingPortalPage() {
 
               <div className="space-y-2">
                 <p className="text-xs text-[#4a4a4a]">
-                  Enter your Booking Code (e.g. RSE-001) or registered WhatsApp number:
+                  Enter your Booking Code (e.g. RSE/NOV/029) or registered WhatsApp number:
                 </p>
                 <div className="flex space-x-2">
                   <input
                     type="text"
-                    placeholder="RSE-001 or +91 98250..."
+                    placeholder="RSE/NOV/029 or +91 98250..."
                     value={trackerQuery}
                     onChange={(e) => setTrackerQuery(e.target.value)}
                     className="border-2 border-[#e5e5e5] rounded-lg px-3 py-2 text-xs font-mono flex-1 outline-none"

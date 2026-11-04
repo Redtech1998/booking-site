@@ -23,6 +23,7 @@ import {
   DEFAULT_HOLIDAYS,
   StudioHoliday,
 } from "@/data/servicesData";
+import { generateBookingCode } from "@/lib/bookingCode";
 
 interface AppState {
   // Auth
@@ -541,7 +542,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Add Booking
   const addBooking = useCallback(
     (data: Omit<Booking, "id" | "code" | "createdAt">): Booking => {
-      const code = `RSE-${String(bookings.length + 1).padStart(3, "0")}`;
+      const code = generateBookingCode(data.slotDate, bookings);
       const newBooking: Booking = {
         ...data,
         id: `b_${Date.now()}`,
@@ -563,7 +564,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       return newBooking;
     },
-    [bookings.length]
+    [bookings]
   );
 
   // Update Booking Complete

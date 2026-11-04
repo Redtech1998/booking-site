@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SEED_BOOKINGS } from "@/data/seed";
 import { Booking } from "@/types";
+import { generateBookingCode } from "@/lib/bookingCode";
 import fs from "fs";
 import path from "path";
 import {
@@ -152,9 +153,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const current = loadStoredBookings();
 
-    const exists = current.find(
-      (b) => (body.id && b.id === body.id) || (body.code && b.code === body.code)
-    );
+    // Only match existing by unique id
+    const exists = current.find((b) => body.id && b.id === body.id);
 
     let finalBooking: Booking;
     let updatedList = [...current];
@@ -165,10 +165,20 @@ export async function POST(req: NextRequest) {
         b.id === exists.id ? finalBooking : b
       );
     } else {
+      // For a new booking, ensure code is uniquely generated in RSE/<MONTH>/<SEQ> format
+      let assignedCode = body.code;
+      const isCodeTaken =
+        !assignedCode ||
+        current.some((b) => b.code.toUpperCase() === String(assignedCode).toUpperCase());
+
+      if (isCodeTaken) {
+        assignedCode = generateBookingCode(body.slotDate, current);
+      }
+
       finalBooking = {
         ...body,
         id: body.id || `b_${Date.now()}`,
-        code: body.code || `RSE-${String(current.length + 1).padStart(3, "0")}`,
+        code: assignedCode,
         createdAt: body.createdAt || new Date().toISOString(),
       };
       updatedList = [finalBooking, ...updatedList];

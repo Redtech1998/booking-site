@@ -92,7 +92,7 @@ export interface ReminderLog {
 
 export interface Booking {
   id: string;
-  code: string;                  // RSE-001, RSE-002 …
+  code: string;                  // RSE/NOV/029, RSE/DEC/001 …
   source: BookingSource;
   region: RegionType;
   customerType: "new" | "existing";
