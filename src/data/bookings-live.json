@@ -296,8 +296,9 @@
     "slotDate": "2026-11-17",
     "songPreference": "Share songs via WhatsApp Studio Group",
     "source": "website",
-    "status": "new_deposit_pending",
-    "studioOrClient": "jaydeep"
+    "status": "in_revision",
+    "studioOrClient": "jaydeep",
+    "revisionRound": 1
   },
   {
     "id": "b_1793800366270",

@@ -1396,11 +1396,11 @@ export default function BookingPortalPage() {
                             </div>
 
                             <div className="flex items-center justify-between text-xs text-[#4a4a4a] pt-3 mt-2 border-t border-[#e5e5e5]">
-                              <span className="text-[10px] font-semibold text-[#a83d5b] uppercase tracking-wider">
-                                Turnaround:
+                              <span className="font-bold text-[#6b2e4c] text-[11px] truncate max-w-[170px]" title={srv.pricingNote}>
+                                {srv.pricingNote || (srv.basePriceINR ? `₹${srv.basePriceINR.toLocaleString("en-IN")}` : "Custom Quote")}
                               </span>
-                              <span className="font-bold text-[#0f0f10] bg-[#f8f8f8] px-2 py-0.5 rounded-lg border border-[#e5e5e5] text-[11px]">
-                                Est. {srv.clientDays} Days
+                              <span className="font-bold text-[#0f0f10] bg-[#f8f8f8] px-2 py-0.5 rounded-lg border border-[#e5e5e5] text-[11px] shrink-0">
+                                {srv.clientDays} Days
                               </span>
                             </div>
                           </div>

@@ -1,5 +1,7 @@
 // ─── RSE Post Production House: Services & Rules Master Data ─────────
 
+export type PricingType = "per_minute" | "per_hour" | "fixed" | "custom";
+
 export interface ServiceDefinition {
   id: string;
   name: string;
@@ -10,6 +12,12 @@ export interface ServiceDefinition {
   category: "wedding" | "corporate" | "reel" | "demo" | "other";
   basePriceINR?: number;    // Customizable in Admin panel
   isFreeDemo?: boolean;
+  pricingType?: PricingType;
+  ratePerMinute?: number;
+  ratePerHour?: number;
+  minDurationMinutes?: number;
+  pricingNote?: string;
+  isCustomQuote?: boolean;
 }
 
 // 🌍 1. Foreign Client Services
@@ -87,27 +95,32 @@ export const FOREIGN_SERVICES: ServiceDefinition[] = [
   },
 ];
 
-// 🇮🇳 2. Indian Client Services
+// 🇮🇳 2. Indian Client Services (Official RSE Master Pricing)
 export const INDIAN_SERVICES: ServiceDefinition[] = [
   {
     id: "in_wedding_highlight",
-    name: "Wedding Highlight",
+    name: "Wedding Highlight (૩ થી ૫ મિનિટ)",
     region: "indian",
     editorDays: 2,
     clientDays: 4,
-    description: "Classic Indian wedding cinematic highlight with beat sync, emotional audio, and teaser feel.",
+    description: "સિનેમેટિક વેડિંગ હાઇલાઇટ ફિલ્મ - ₹૧,૨૫૧ પ્રતિ મિનિટ (સેકન્ડ દીઠ ₹૨૦.૮૫) પ્રો-રેટા હિસાબ.",
     category: "wedding",
-    basePriceINR: 20000,
+    pricingType: "per_minute",
+    ratePerMinute: 1251,
+    basePriceINR: 5004, // 4 min standard reference
+    pricingNote: "₹૧,૨૫૧ / મિનિટ (Pro-Rata)",
   },
   {
     id: "in_wedding_short_film",
-    name: "Wedding Short Film",
+    name: "Wedding Short Film (૩૦ થી ૪૦ મિનિટ)",
     region: "indian",
     editorDays: 4,
     clientDays: 6,
-    description: "10-15 minute short film covering all primary wedding rituals with custom sound mastering.",
+    description: "સંપૂર્ણ ૩૦ થી ૪૦ મિનિટની સ્ટોરી-ડ્રિવન વેડિંગ શોર્ટ ફિલ્મ વિથ સાઉન્ડ માસ્ટરિંગ.",
     category: "wedding",
-    basePriceINR: 38000,
+    pricingType: "fixed",
+    basePriceINR: 16500,
+    pricingNote: "ફિક્સ રેટ: ₹૧૬,૫૦૦",
   },
   {
     id: "in_trad_single_cam",
@@ -115,9 +128,13 @@ export const INDIAN_SERVICES: ServiceDefinition[] = [
     region: "indian",
     editorDays: 3,
     clientDays: 4,
-    description: "Complete chronological traditional edit for single-camera capture.",
+    description: "સિંગલ કેમેરા ટ્રેડિશનલ એડિટ - ₹૧,૫૫૦ પ્રતિ કલાક (૦ થી ૬૦ મિનિટ ન્યૂનતમ ૧ કલાક સ્લેબ).",
     category: "wedding",
-    basePriceINR: 22000,
+    pricingType: "per_hour",
+    ratePerHour: 1550,
+    minDurationMinutes: 60,
+    basePriceINR: 1550,
+    pricingNote: "₹૧,૫૫૦ / કલાક (Min 1 hr)",
   },
   {
     id: "in_trad_multi_cam",
@@ -125,39 +142,62 @@ export const INDIAN_SERVICES: ServiceDefinition[] = [
     region: "indian",
     editorDays: 3,
     clientDays: 5,
-    description: "Multicam synchronized traditional wedding film with seamless angle switching.",
+    description: "મલ્ટી કેમેરા ટ્રેડિશનલ એડિટ - ₹૧,૮૫૦ પ્રતિ કલાક (૦ થી ૬૦ મિનિટ ન્યૂનતમ ૧ કલાક સ્લેબ).",
     category: "wedding",
-    basePriceINR: 32000,
+    pricingType: "per_hour",
+    ratePerHour: 1850,
+    minDurationMinutes: 60,
+    basePriceINR: 1850,
+    pricingNote: "₹૧,૮૫૦ / કલાક (Min 1 hr)",
   },
   {
-    id: "in_wedding_insta_reel",
-    name: "Wedding / Reel Insta Cut",
+    id: "in_wedding_reel",
+    name: "Wedding Vertical Reel (ઊભી રીલ 9:16)",
     region: "indian",
     editorDays: 0.5,
     clientDays: 1,
-    description: "Quick turnaround vertical 9:16 reel with trending beat-sync cuts.",
+    description: "ટ્રેન્ડિંગ મ્યુઝિક સાથેની વર્ટિકલ 9:16 સોશિયલ મીડિયા રીલ.",
     category: "reel",
-    basePriceINR: 5000,
+    pricingType: "fixed",
+    basePriceINR: 951,
+    pricingNote: "₹૯૫૧ / રીલ",
+  },
+  {
+    id: "in_wedding_insta_cut",
+    name: "Wedding Insta Cut (9:16)",
+    region: "indian",
+    editorDays: 0.5,
+    clientDays: 1,
+    description: "ઇન્સ્ટાગ્રામ સ્પેશિયલ સિનેમેટિક કટ વિડીયો.",
+    category: "reel",
+    pricingType: "fixed",
+    basePriceINR: 1851,
+    pricingNote: "₹૧,૮૫૧ / કટ",
   },
   {
     id: "in_wedding_teaser",
-    name: "Wedding Teaser / Trailer",
+    name: "Wedding Teaser / Trailer (૬૦ થી ૯૦ સેકન્ડ)",
     region: "indian",
     editorDays: 1,
     clientDays: 2,
-    description: "Punchy 60-90 second cinematic trailer designed for WhatsApp and social announcement.",
+    description: "પંચી ૬૦-૯૦ સેકન્ડ સિનેમેટિક ટીઝર અને ટ્રેલર.",
     category: "wedding",
-    basePriceINR: 12000,
+    pricingType: "fixed",
+    basePriceINR: 3500,
+    pricingNote: "₹૩,૫૦૦ થી ₹૫,૦૦૦",
   },
   {
     id: "in_education_reel_other",
-    name: "Education - Video / Reel / Highlight / Other",
+    name: "Education - Video / Reel / Other",
     region: "indian",
     editorDays: 2,
     clientDays: 3,
-    description: "E-learning, workshop recap, podcast, or customized commercial edit.",
+    description: "એડ્યુકેશન વિડીયો અને અન્ય કસ્ટમ વર્ક - ક્લાયન્ટ અને કામ મુજબ નક્કી થશે.",
     category: "other",
-    basePriceINR: 18000,
+    pricingType: "custom",
+    isCustomQuote: true,
+    basePriceINR: 0,
+    pricingNote: "ચર્ચા મુજબ / Custom Quote",
   },
   {
     id: "in_corp_event_highlight",
@@ -165,19 +205,25 @@ export const INDIAN_SERVICES: ServiceDefinition[] = [
     region: "indian",
     editorDays: 1.5,
     clientDays: 2,
-    description: "Polished corporate brand event summary with speaker soundbites and motion titles.",
+    description: "કોર્પોરેટ ઇવેન્ટ વિડીયો - ક્લાયન્ટ પ્રોજેક્ટ મુજબ નક્કી થશે.",
     category: "corporate",
-    basePriceINR: 16000,
+    pricingType: "custom",
+    isCustomQuote: true,
+    basePriceINR: 0,
+    pricingNote: "ચર્ચા મુજબ / Custom Quote",
   },
   {
     id: "in_corp_reel",
-    name: "Corporate - Reel / Insta Cut",
+    name: "Corporate - Reel / Promo",
     region: "indian",
     editorDays: 1,
     clientDays: 1,
-    description: "High-impact social reel for corporate brand campaigns.",
+    description: "કોર્પોરેટ સોશિયલ રીલ અને પ્રમોશનલ વિડીયો.",
     category: "reel",
-    basePriceINR: 8000,
+    pricingType: "custom",
+    isCustomQuote: true,
+    basePriceINR: 0,
+    pricingNote: "ચર્ચા મુજબ / Custom Quote",
   },
 ];
 
