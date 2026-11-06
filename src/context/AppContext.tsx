@@ -120,10 +120,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const u = localStorage.getItem("rse_user");
-      if (u) setCurrentUser(JSON.parse(u));
+      if (u) {
+        const parsed = JSON.parse(u);
+        if (parsed?.email?.includes("@rse-edit.com")) {
+          setCurrentUser(parsed);
+        } else {
+          setCurrentUser(SEED_STAFF[0]);
+          localStorage.setItem("rse_user", JSON.stringify(SEED_STAFF[0]));
+        }
+      } else {
+        setCurrentUser(SEED_STAFF[0]);
+      }
 
       const st = localStorage.getItem("rse_staff_v2");
-      if (st) setStaff(JSON.parse(st));
+      if (st) {
+        const parsedStaff = JSON.parse(st);
+        if (Array.isArray(parsedStaff) && parsedStaff.some((s: StaffMember) => s.email?.includes("@rse-edit.com"))) {
+          setStaff(parsedStaff);
+        } else {
+          setStaff(SEED_STAFF);
+          localStorage.setItem("rse_staff_v2", JSON.stringify(SEED_STAFF));
+        }
+      } else {
+        setStaff(SEED_STAFF);
+      }
 
       const att = localStorage.getItem("rse_attendance_v2");
       if (att) setAttendance(JSON.parse(att));
