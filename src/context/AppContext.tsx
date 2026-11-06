@@ -8,6 +8,7 @@ import {
   StaffMember,
   AttendanceRecord,
   LeaveRequest,
+  Invoice,
 } from "@/types";
 import {
   STAFF as SEED_STAFF,
@@ -75,6 +76,12 @@ interface AppState {
   findClientByPhone: (phone: string) => Client | undefined;
   updateClientWhatsAppGroup: (clientId: string, groupUrl: string) => void;
 
+  // Permanent Invoices Archive (વર્ષો સુધી સુરક્ષિત બિલ હિસાબ)
+  invoices: Invoice[];
+  addInvoice: (inv: Omit<Invoice, "id" | "createdAt">) => Promise<Invoice>;
+  updateInvoice: (inv: Invoice) => Promise<void>;
+  deleteInvoice: (id: string) => Promise<void>;
+
   // Services & Capacity
   services: ServiceDefinition[];
   updateServicePrice: (serviceId: string, newPriceINR: number) => void;
@@ -110,6 +117,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Bookings & Clients
   const [bookings, setBookings] = useState<Booking[]>(SEED_BOOKINGS);
   const [clients, setClients] = useState<Client[]>(SEED_CLIENTS);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [services, setServices] = useState<ServiceDefinition[]>(ALL_SERVICES);
   const [holidays, setHolidays] = useState<StudioHoliday[]>(DEFAULT_HOLIDAYS);
   const [hydrated, setHydrated] = useState(false);
@@ -157,6 +165,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const c = localStorage.getItem("rse_clients_v2");
       if (c) setClients(JSON.parse(c));
 
+      const inv = localStorage.getItem("rse_invoices_v2");
+      if (inv) setInvoices(JSON.parse(inv));
+
       const s = localStorage.getItem("rse_services_v2");
       if (s) setServices(JSON.parse(s));
 
@@ -165,9 +176,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
     setHydrated(true);
 
-    // Initial & continuous sync from local API & live website API
-    const fetchBookings = async () => {
-      // 1. Local Server API (MongoDB Atlas synced)
+    // Initial & continuous sync from local API & live website API (MongoDB Atlas synced)
+    const fetchStudioData = async () => {
+      // 1. Bookings Sync
       try {
         const res = await fetch("/api/bookings", { cache: "no-store" });
         if (res.ok) {
@@ -178,13 +189,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (_) {}
+
+      // 2. Invoices Sync (MongoDB Atlas)
+      try {
+        const res = await fetch("/api/invoices", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.invoices && Array.isArray(data.invoices)) {
+            setInvoices(data.invoices);
+          }
+        }
+      } catch (_) {}
+
+      // 3. Staff & Salaries Sync (MongoDB Atlas)
+      try {
+        const res = await fetch("/api/staff", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.staff && Array.isArray(data.staff) && data.staff.length > 0) {
+            setStaff(data.staff);
+          }
+        }
+      } catch (_) {}
+
+      // 4. Clients Sync (MongoDB Atlas)
+      try {
+        const res = await fetch("/api/clients", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.clients && Array.isArray(data.clients) && data.clients.length > 0) {
+            setClients(data.clients);
+          }
+        }
+      } catch (_) {}
     };
 
-    fetchBookings();
+    fetchStudioData();
 
     // Auto-poll server every 15 seconds for continuous real-time cross-device sync
-    const interval = setInterval(fetchBookings, 15000);
-    const handleSync = () => fetchBookings();
+    const interval = setInterval(fetchStudioData, 15000);
+    const handleSync = () => fetchStudioData();
     window.addEventListener("focus", handleSync);
     window.addEventListener("storage", handleSync);
 
@@ -195,7 +239,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Persist locally
+  // Persist locally as fallback cache
   useEffect(() => {
     if (!hydrated) return;
     try {
@@ -207,10 +251,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("rse_leaves_v2", JSON.stringify(leaveRequests));
       localStorage.setItem("rse_bookings_v2", JSON.stringify(bookings));
       localStorage.setItem("rse_clients_v2", JSON.stringify(clients));
+      localStorage.setItem("rse_invoices_v2", JSON.stringify(invoices));
       localStorage.setItem("rse_services_v2", JSON.stringify(services));
       localStorage.setItem("rse_holidays_v2", JSON.stringify(holidays));
     } catch (_) {}
-  }, [currentUser, staff, attendance, leaveRequests, bookings, clients, services, holidays, hydrated]);
+  }, [currentUser, staff, attendance, leaveRequests, bookings, clients, invoices, services, holidays, hydrated]);
 
   // Auth Functions
   const login = useCallback(
@@ -245,7 +290,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateStaff = useCallback((id: string, updates: Partial<StaffMember>) => {
-    setStaff((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
+    setStaff((prev) => {
+      const updated = prev.map((s) => (s.id === id ? { ...s, ...updates } : s));
+      const target = updated.find((s) => s.id === id);
+      if (target && typeof window !== "undefined") {
+        fetch("/api/staff", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(target),
+        }).catch(() => {});
+      }
+      return updated;
+    });
     setCurrentUser((prev) => (prev && prev.id === id ? { ...prev, ...updates } : prev));
   }, []);
 
@@ -797,6 +853,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setHolidays((prev) => prev.filter((h) => h.date !== date));
   }, []);
 
+  // Permanent Invoices Archive Handlers (MongoDB Atlas synced)
+  const addInvoice = useCallback(
+    async (invData: Omit<Invoice, "id" | "createdAt">): Promise<Invoice> => {
+      const newInv: Invoice = {
+        ...invData,
+        id: `inv_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+      };
+      setInvoices((prev) => [newInv, ...prev]);
+      if (typeof window !== "undefined") {
+        fetch("/api/invoices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newInv),
+        }).catch(() => {});
+      }
+      return newInv;
+    },
+    []
+  );
+
+  const updateInvoice = useCallback(async (inv: Invoice): Promise<void> => {
+    setInvoices((prev) => prev.map((item) => (item.id === inv.id ? inv : item)));
+    if (typeof window !== "undefined") {
+      fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(inv),
+      }).catch(() => {});
+    }
+  }, []);
+
+  const deleteInvoice = useCallback(async (id: string): Promise<void> => {
+    setInvoices((prev) => prev.filter((item) => item.id !== id));
+    if (typeof window !== "undefined") {
+      fetch(`/api/invoices?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }).catch(() => {});
+    }
+  }, []);
+
   return (
     <Ctx.Provider
       value={{
@@ -829,6 +926,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clients,
         findClientByPhone,
         updateClientWhatsAppGroup,
+        invoices,
+        addInvoice,
+        updateInvoice,
+        deleteInvoice,
         services,
         updateServicePrice,
         holidays,

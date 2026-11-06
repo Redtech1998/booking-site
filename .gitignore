@@ -43,6 +43,3 @@ next-env.d.ts
 _public_html.zip
 extracted_booking_site/
 
-# Internal OS module (Managed in dedicated OS workspace / os.rsegnr.in)
-src/app/os/
-

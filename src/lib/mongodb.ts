@@ -1,5 +1,5 @@
 import { MongoClient, Db } from "mongodb";
-import { Booking } from "@/types";
+import { Booking, Invoice, StaffMember, Client, AttendanceRecord } from "@/types";
 
 const uri = process.env.MONGODB_URI || "";
 
@@ -126,3 +126,163 @@ export async function syncLocalBookingsToMongo(localList: Booking[]): Promise<nu
     return 0;
   }
 }
+
+// ─── Permanent Invoices Storage (10+ Years Cloud Archive) ─────────
+
+export async function fetchInvoicesFromMongo(): Promise<Invoice[] | null> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return null;
+    const collection = db.collection<Invoice>("invoices");
+    const docs = await collection
+      .find({})
+      .sort({ createdAt: -1 })
+      .toArray();
+    return docs.map(({ _id, ...rest }: any) => rest as Invoice);
+  } catch (err) {
+    console.warn("Error reading invoices from MongoDB:", err);
+    return null;
+  }
+}
+
+export async function saveInvoiceToMongo(invoice: Invoice): Promise<boolean> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return false;
+    const collection = db.collection("invoices");
+    await collection.updateOne(
+      { id: invoice.id },
+      { $set: invoice },
+      { upsert: true }
+    );
+    return true;
+  } catch (err) {
+    console.warn("Error saving invoice to MongoDB:", err);
+    return false;
+  }
+}
+
+export async function deleteInvoiceFromMongo(id: string): Promise<boolean> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return false;
+    const collection = db.collection("invoices");
+    await collection.deleteOne({ id });
+    return true;
+  } catch (err) {
+    console.warn("Error deleting invoice from MongoDB:", err);
+    return false;
+  }
+}
+
+// ─── Staff & Salary Permanent Storage ──────────────────────────────
+
+export async function fetchStaffFromMongo(): Promise<StaffMember[] | null> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return null;
+    const collection = db.collection<StaffMember>("staff");
+    const docs = await collection.find({}).toArray();
+    return docs.map(({ _id, ...rest }: any) => rest as StaffMember);
+  } catch (err) {
+    console.warn("Error reading staff from MongoDB:", err);
+    return null;
+  }
+}
+
+export async function saveStaffMemberToMongo(member: StaffMember): Promise<boolean> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return false;
+    const collection = db.collection("staff");
+    await collection.updateOne(
+      { id: member.id },
+      { $set: member },
+      { upsert: true }
+    );
+    return true;
+  } catch (err) {
+    console.warn("Error saving staff member to MongoDB:", err);
+    return false;
+  }
+}
+
+export async function syncAllStaffToMongo(staffList: StaffMember[]): Promise<boolean> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return false;
+    const collection = db.collection("staff");
+    for (const s of staffList) {
+      await collection.updateOne({ id: s.id }, { $set: s }, { upsert: true });
+    }
+    return true;
+  } catch (err) {
+    console.warn("Error syncing staff to MongoDB:", err);
+    return false;
+  }
+}
+
+// ─── Clients Directory Permanent Storage ─────────────────────────
+
+export async function fetchClientsFromMongo(): Promise<Client[] | null> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return null;
+    const collection = db.collection<Client>("clients");
+    const docs = await collection.find({}).sort({ lastActive: -1 }).toArray();
+    return docs.map(({ _id, ...rest }: any) => rest as Client);
+  } catch (err) {
+    console.warn("Error reading clients from MongoDB:", err);
+    return null;
+  }
+}
+
+export async function saveClientToMongo(client: Client): Promise<boolean> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return false;
+    const collection = db.collection("clients");
+    await collection.updateOne(
+      { id: client.id },
+      { $set: client },
+      { upsert: true }
+    );
+    return true;
+  } catch (err) {
+    console.warn("Error saving client to MongoDB:", err);
+    return false;
+  }
+}
+
+// ─── Daily Attendance Permanent Storage ──────────────────────────
+
+export async function fetchAttendanceFromMongo(): Promise<AttendanceRecord[] | null> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return null;
+    const collection = db.collection<AttendanceRecord>("attendance");
+    const docs = await collection.find({}).sort({ date: -1 }).toArray();
+    return docs.map(({ _id, ...rest }: any) => rest as AttendanceRecord);
+  } catch (err) {
+    console.warn("Error reading attendance from MongoDB:", err);
+    return null;
+  }
+}
+
+export async function saveAttendanceRecordToMongo(record: AttendanceRecord): Promise<boolean> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return false;
+    const collection = db.collection("attendance");
+    await collection.updateOne(
+      { id: record.id },
+      { $set: record },
+      { upsert: true }
+    );
+    return true;
+  } catch (err) {
+    console.warn("Error saving attendance to MongoDB:", err);
+    return false;
+  }
+}
+

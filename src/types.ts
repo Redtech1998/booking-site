@@ -177,3 +177,52 @@ export interface AttendanceRecord {
   punchOut?: string;  // ISO
   device?: "mac" | "iphone" | "workstation";
 }
+
+// ─── Permanent Invoices Archive (વર્ષો સુધી સુરક્ષિત બિલ હિસાબ) ──────
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  duration?: string;     // e.g. "05:40" or "1:25"
+  unitPrice: number;     // e.g. 1251 or 1550
+  quantity: number;      // e.g. 5.67 minutes or 1.42 hours or 1 item
+  rateType?: "per_min" | "per_hour" | "fixed";
+  amount: number;        // Total line item amount
+}
+
+export type InvoiceStatus = "unpaid" | "partially_paid" | "paid" | "cancelled";
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;        // e.g. "RSE/INV/2026/001"
+  bookingId?: string;           // Linked Booking ID
+  bookingCode?: string;         // e.g. "RSE/NOV/008"
+  clientName: string;           // Couple Name or Photographer
+  studioName?: string;          // Studio / Production House Name
+  phone: string;                // WhatsApp Number
+  email?: string;
+  city?: string;
+  country?: string;
+  issueDate: string;            // YYYY-MM-DD
+  dueDate?: string;             // YYYY-MM-DD
+  items: InvoiceItem[];
+  subtotal: number;
+  discount: number;
+  taxAmount?: number;           // If GST applicable
+  totalAmount: number;
+  advancePaid: number;          // 50% Advance amount
+  balanceDue: number;           // Remaining 50%
+  status: InvoiceStatus;
+  currency: "INR" | "USD" | "GBP" | "EUR";
+  notes?: string;
+  bankDetails?: {
+    accountName: string;
+    accountNumber: string;
+    ifsc: string;
+    bankName: string;
+    upiId: string;
+  };
+  createdAt: string;            // ISO
+  updatedAt?: string;
+}
+
