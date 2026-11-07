@@ -20,7 +20,7 @@ function loadStoredBookings(): Booking[] {
     if (fs.existsSync(DATA_FILE)) {
       const data = fs.readFileSync(DATA_FILE, "utf-8");
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -30,14 +30,14 @@ function loadStoredBookings(): Booking[] {
     if (fs.existsSync(TMP_FILE)) {
       const data = fs.readFileSync(TMP_FILE, "utf-8");
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
   } catch (_) {}
 
-  saveBookings([...SEED_BOOKINGS]);
-  return [...SEED_BOOKINGS];
+  saveBookings([]);
+  return [];
 }
 
 function saveBookings(bookings: Booking[]) {

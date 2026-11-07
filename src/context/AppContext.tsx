@@ -183,7 +183,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch("/api/bookings", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
-          if (data?.bookings && Array.isArray(data.bookings) && data.bookings.length > 0) {
+          if (data && Array.isArray(data.bookings)) {
             setBookings(data.bookings);
             setLastSyncedAt(new Date());
           }
@@ -195,7 +195,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch("/api/invoices", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
-          if (data?.invoices && Array.isArray(data.invoices)) {
+          if (data && Array.isArray(data.invoices)) {
             setInvoices(data.invoices);
           }
         }
@@ -217,7 +217,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch("/api/clients", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
-          if (data?.clients && Array.isArray(data.clients) && data.clients.length > 0) {
+          if (data && Array.isArray(data.clients)) {
             setClients(data.clients);
           }
         }

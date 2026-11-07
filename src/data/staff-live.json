@@ -1,0 +1,29 @@
+[
+  {
+    "id": "s1",
+    "baseSalary": 0,
+    "email": "keyur@rse-edit.com",
+    "isActive": true,
+    "name": "Keyur Rao",
+    "password": "keyur@123",
+    "role": "admin"
+  },
+  {
+    "id": "s2",
+    "baseSalary": 0,
+    "email": "nirali@rse-edit.com",
+    "isActive": true,
+    "name": "Nirali Dhorajiya",
+    "password": "nirali@123",
+    "role": "admin"
+  },
+  {
+    "id": "s3",
+    "baseSalary": 0,
+    "email": "jaydeep@rse-edit.com",
+    "isActive": true,
+    "name": "Jaydeep Tank",
+    "password": "jaydeep@123",
+    "role": "editor"
+  }
+]
