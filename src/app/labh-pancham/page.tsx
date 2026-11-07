@@ -151,6 +151,7 @@ export default function LabhPanchamOfferPage() {
   const [contactPerson, setContactPerson] = useState<string>("");
   const [coupleNames, setCoupleNames] = useState<string>("");
   const [whatsappNumber, setWhatsappNumber] = useState<string>("");
+  const [clientEmail, setClientEmail] = useState<string>("");
   const [clientCity, setClientCity] = useState<string>("");
   const [projectNotes, setProjectNotes] = useState<string>("");
   const [agreedToTerms, setAgreedToTerms] = useState<boolean>(true);
@@ -283,7 +284,7 @@ export default function LabhPanchamOfferPage() {
         studioOrClient: studioName || "Studio Partner",
         contactPerson: contactPerson || studioName,
         phone: whatsappNumber,
-        email: "Hello@rse-edit.com",
+        email: clientEmail || "Hello@rse-edit.com",
         city: clientCity || "Gujarat",
         country: "India",
         eventDate: selectedSlotDate,
@@ -315,6 +316,38 @@ export default function LabhPanchamOfferPage() {
       });
 
       setConfirmedBooking(newBooking);
+
+      // Call Zoho Confirmation API to send official confirmation email with Diwali & New Year wishes
+      if (clientEmail) {
+        try {
+          await fetch("/api/send-confirmation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "labh_pancham_confirmation",
+              bookingCode: newBooking.code,
+              clientEmail: clientEmail,
+              clientName: newBooking.coupleNames,
+              studioName: newBooking.studioOrClient,
+              contactPerson: newBooking.contactPerson,
+              phone: newBooking.phone,
+              city: newBooking.city,
+              country: "India",
+              slotDate: newBooking.slotDate,
+              deliveryDate: newBooking.deliveryDate,
+              packageName: newBooking.packageType,
+              region: "indian",
+              deliveryMethod: "online",
+              notes: newBooking.notes,
+              pricing: newBooking.pricing,
+              offerType: "labh_pancham_2026",
+            }),
+          });
+        } catch (mailErr) {
+          console.error("Confirmation email dispatch error:", mailErr);
+        }
+      }
+
       goToStep(5);
     } catch (err) {
       console.error(err);
@@ -323,9 +356,9 @@ export default function LabhPanchamOfferPage() {
     }
   };
 
-  // WhatsApp screenshot click handler
+  // WhatsApp screenshot click handler (with Diwali & Happy New Year wishes)
   const getWhatsAppScreenshotUrl = () => {
-    const text = `નમસ્તે RSE સ્ટુડિયો,\n\nમેં "લાભ પાંચમ મુહૂર્ત ઓફર '26" હેઠળ સ્લોટ બુકિંગ માટે ₹1,000 ટોકન એડવાન્સ પેમેન્ટ કર્યું છે.\n\n👤 સ્ટુડિયો / ક્લાયન્ટ: ${studioName || contactPerson || "ક્લાયન્ટ"}\n💍 પ્રોજેક્ટ (કપલ): ${coupleNames}\n📞 ફોન: ${whatsappNumber}\n🗓️ બુક કરેલ સ્લોટ તારીખ: ${selectedSlotDate}\n💰 15% મુહૂર્ત ફાઇનલ ભાવ: ₹${pricingSummary.grandOfferPrice}\n\nપેમેન્ટનો સ્ક્રીનશૉટ આ સાથે મોકલી રહ્યો છું. કૃપા કરીને સ્લોટ કન્ફર્મ કરવા વિનંતી!`;
+    const text = `🪔 શુભ દીપાવલી & સાલ મુબારક!\nનમસ્તે RSE સ્ટુડિયો,\n\nમેં "લાભ પાંચમ મુહૂર્ત ઓફર '26" હેઠળ સ્લોટ બુકિંગ માટે ₹1,000 ટોકન એડવાન્સ પેમેન્ટ કર્યું છે.\n\n👤 સ્ટુડિયો / ક્લાયન્ટ: ${studioName || contactPerson || "ક્લાયન્ટ"}\n💍 પ્રોજેક્ટ (કપલ): ${coupleNames}\n📞 ફોન: ${whatsappNumber}\n📧 ઈમેઇલ: ${clientEmail}\n🗓️ બુક કરેલ સ્લોટ તારીખ: ${selectedSlotDate}\n💰 15% મુહૂર્ત ફાઇનલ ભાવ: ₹${pricingSummary.grandOfferPrice}\n\nપેમેન્ટનો સ્ક્રીનશૉટ આ સાથે મોકલી રહ્યો છું. કૃપા કરીને સ્લોટ કન્ફર્મ કરવા વિનંતી!`;
     return `https://wa.me/${STUDIO_WHATSAPP_CLEAN}?text=${encodeURIComponent(text)}`;
   };
 
@@ -384,9 +417,21 @@ export default function LabhPanchamOfferPage() {
           <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-amber-400/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-[#F59E0B]/20 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="relative z-10 space-y-2.5">
+          <div className="relative z-10 space-y-3">
             <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-amber-400/20 border border-amber-300/40 text-amber-300 text-2xs font-extrabold uppercase tracking-widest shadow-sm">
               <span>✨ દિવાળી & લાભ પાંચમ વેડિંગ સીઝન સ્પેશિયલ ✨</span>
+            </div>
+
+            {/* ── Warm Diwali & New Year Festive Greetings Banner ── */}
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/20 border border-amber-300/40 text-[#FFF8E7] text-center space-y-1 shadow-inner">
+              <div className="flex items-center justify-center space-x-2 text-amber-300 font-extrabold text-xs sm:text-sm">
+                <span>🪔</span>
+                <span>શુભ દીપાવલી & નૂતન વર્ષાભિનંદન (Happy Diwali & Happy New Year 2026)</span>
+                <span>🪔</span>
+              </div>
+              <p className="text-2xs sm:text-xs text-amber-100/90 leading-relaxed max-w-xl mx-auto">
+                RSE પોસ્ટ પ્રોડક્શન પરિવાર તરફથી તમને, તમારા પરિવારને તથા તમારા સમગ્ર સ્ટુડિયો ટીમને દિવાળી અને નવા વર્ષની હાર્દિક શુભકામનાઓ! નવું વર્ષ તમારા માટે સુખ, શાંતિ, સમૃદ્ધિ અને અનેક શાનદાર વેડિંગ પ્રોજેક્ટ્સ લઈને આવે એવી શુભેચ્છાઓ!
+              </p>
             </div>
 
             <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif text-[#FFF8E7] drop-shadow-sm leading-tight">
@@ -780,6 +825,23 @@ export default function LabhPanchamOfferPage() {
 
               <div>
                 <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
+                  ઈમેઇલ એડ્રેસ (બુકિંગ રસીદ & શુભકામનાઓ મોકલવા માટે) *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  placeholder="દા.ત. yourstudio@gmail.com"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D1D1D6] font-mono text-sm sm:text-xs focus:ring-2 focus:ring-[#6B2E4C] focus:outline-none"
+                />
+                <p className="text-2xs text-emerald-700 font-semibold mt-0.5">
+                  ✓ આ ઈમેઇલ પર મુહૂર્ત સ્લોટની સત્તાવાર રસીદ અને દિવાળી શુભેચ્છા મોકલાશે.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
                   શહેર (City)
                 </label>
                 <input
@@ -838,7 +900,7 @@ export default function LabhPanchamOfferPage() {
               </button>
               <button
                 type="button"
-                disabled={!studioName || !coupleNames || !whatsappNumber || !agreedToTerms}
+                disabled={!studioName || !coupleNames || !whatsappNumber || !clientEmail || !agreedToTerms}
                 onClick={() => goToStep(4)}
                 className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#6B2E4C] hover:bg-[#58243E] disabled:opacity-40 text-white font-bold text-xs shadow-md transition text-center"
               >
@@ -996,6 +1058,19 @@ export default function LabhPanchamOfferPage() {
               </p>
             </div>
 
+            {/* ── Festive Diwali & New Year Greeting Card ── */}
+            <div className="max-w-md mx-auto p-4 rounded-2xl bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-300 text-amber-950 space-y-1.5 text-center shadow-sm">
+              <div className="text-sm font-extrabold text-[#6B2E4C] flex items-center justify-center space-x-1.5">
+                <span>✨</span>
+                <span>શુભ દીપાવલી & નૂતન વર્ષાભિનંદન (સાલ મુબારક)</span>
+                <span>✨</span>
+              </div>
+              <p className="text-xs text-amber-900 leading-relaxed">
+                નવું વર્ષ તમારા સમગ્ર પરિવાર અને સ્ટુડિયો ટીમ માટે સુખ, શાંતિ, સમૃદ્ધિ અને અઢળક વેડિંગ પ્રોજેક્ટ્સ લઈને આવે એવી RSE પરિવાર તરફથી હાર્દિક શુભકામનાઓ! આપના ઈમેઇલ{" "}
+                <strong className="font-mono text-[#6B2E4C] underline">{confirmedBooking.email}</strong> પર મુહૂર્ત બુકિંગ રસીદ અને શુભેચ્છાઓ મોકલી આપવામાં આવી છે.
+              </p>
+            </div>
+
             {/* Receipt Summary Card */}
             <div className="max-w-md mx-auto p-4 sm:p-5 rounded-2xl bg-[#F8F7F4] border border-[#E5E5EA] text-left text-xs space-y-2">
               <div className="flex justify-between border-b border-[#E5E5EA] pb-1.5">
@@ -1011,6 +1086,10 @@ export default function LabhPanchamOfferPage() {
               <div className="flex justify-between">
                 <span className="text-[#8E8E93]">સ્ટુડિયો:</span>
                 <span className="font-bold">{confirmedBooking.studioOrClient}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8E8E93]">ઈમેઇલ (રસીદ મોકલેલ):</span>
+                <span className="font-mono font-bold text-emerald-800">{confirmedBooking.email}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#8E8E93]">સ્લોટ તારીખ:</span>

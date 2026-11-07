@@ -39,7 +39,171 @@ export async function POST(req: Request) {
     const adminAlertRecipients =
       process.env.ADMIN_ALERT_EMAIL || "Hello@rse-edit.com, keyur@rse-edit.com, redofficegnr@gmail.com";
 
-    // 1. FOOTAGE DELAY REMINDER EMAIL
+    // 1. LABH PANCHAM FESTIVE MUHURAT CONFIRMATION (WITH DIWALI & NEW YEAR GREETINGS)
+    if (type === "labh_pancham_confirmation") {
+      const subject = `🪔 [મુહૂર્ત બુકિંગ રસીદ] ${bookingCode} • શુભ દીપાવલી & નૂતન વર્ષાભિનંદન • RSE Post Production House`;
+
+      const textBody = `
+🪔 શુભ દીપાવલી & નૂતન વર્ષાભિનંદન! (Happy Diwali & Happy New Year 2026) 🪔
+RSE પોસ્ટ પ્રોડક્શન પરિવાર તરફથી તમને અને તમારા સમગ્ર પરિવાર તથા સ્ટુડિયો ટીમને દિવાળી અને નવા વર્ષની હાર્દિક શુભકામનાઓ!
+
+નમસ્તે ${studioName || clientName},
+
+RSE "લાભ પાંચમ મુહૂર્ત બુકિંગ ઑફર '26" હેઠળ તમારા વેડિંગ પ્રોજેક્ટ માટે સ્લોટ બુકિંગ રિક્વેસ્ટ સફળતાપૂર્વક નોંધાઈ ગઈ છે.
+
+──────────────────────────────────────────────
+મુહૂર્ત બુકિંગ વિગતો (RESERVATION DETAILS)
+──────────────────────────────────────────────
+બુકિંગ કોડ: ${bookingCode}
+સ્ટુડિયો / કંપની: ${studioName}
+પ્રોજેક્ટ (કપલ): ${clientName}
+સંપર્ક નંબર: ${phone}
+ઈમેઇલ: ${clientEmail}
+એડિટિંગ સ્લોટ તારીખ: ${slotDate}
+અંદાજિત 4K માસ્ટર ડિલિવરી તારીખ: ${deliveryDate}
+પસંદ કરેલ સર્વિસ: ${packageName}
+૧૫% મુહૂર્ત ફાઇનલ કિંમત: ₹${(pricing?.totalAmount || 0).toLocaleString("en-IN")}
+સ્લોટ લોક ટોકન એડવાન્સ: ₹1,000 (ચકાસણી પ્રક્રિયામાં / Pending WhatsApp Screenshot)
+──────────────────────────────────────────────
+
+🚨 અગત્યની સૂચના:
+સ્લોટ ત્યારે જ સત્તાવાર કન્ફર્મ ગણાશે જ્યારે તમારા ₹૧,૦૦૦ ટોકન પેમેન્ટનો સ્ક્રીનશૉટ WhatsApp પર વેરિફાય થશે.
+જો તમે સ્ક્રીનશૉટ હજી ન મોકલ્યો હોય, તો કૃપા કરીને નીચેના WhatsApp નંબર પર મોકલી આપો:
+WhatsApp: +91 8866323567
+
+આગામી પગલાં:
+૧. સ્લોટ તારીખના ૩ થી ૫ દિવસ પહેલાં રૉ ફૂટેજ પહોંચાડવી.
+૨. વોટરમાર્કડ પ્રિવ્યુ Frame.io પર શેર કરવામાં આવશે.
+૩. પ્રિવ્યુ મંજૂર થયા બાદ ફાઇનલ 4K માસ્ટર ડિલિવરી વખતે ૧૫% ડિસ્કાઉન્ટ બાદ બાકી રકમ ચૂકવવાની રહેશે.
+
+શુભેચ્છાઓ સાથે,
+RSE Post Production House
+7th Floor, Radhe Infinity, Gandhinagar, Gujarat
+ફોન / WhatsApp: +91 8866323567 / +91 9313553726
+ઈમેઇલ: Hello@rse-edit.com • વેબસાઇટ: https://book.rsegnr.in
+      `.trim();
+
+      const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>શુભ દીપાવલી & મુહૂર્ત બુકિંગ રસીદ</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #FAF8F5; margin: 0; padding: 24px; color: #1C1C1E;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; border: 2px solid #F59E0B; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.06);">
+    
+    <!-- Festive Header Banner -->
+    <div style="background: linear-gradient(135deg, #6B2E4C 0%, #8B3A62 50%, #45142E 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
+      <div style="display: inline-block; background-color: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.5); padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: bold; color: #FDE68A; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">
+        ✨ દિવાળી & લાભ પાંચમ મુહૂર્ત ઑફર '26 ✨
+      </div>
+      <h1 style="color: #FFF8E7; margin: 0; font-size: 24px; font-family: Georgia, serif; font-weight: 800;">
+        🪔 શુભ દીપાવલી & નૂતન વર્ષાભિનંદન 🪔
+      </h1>
+      <p style="color: #FDE68A; margin: 8px 0 0; font-size: 13px; line-height: 1.5;">
+        RSE પોસ્ટ પ્રોડક્શન પરિવાર તરફથી તમને અને તમારા સમગ્ર પરિવાર તથા સ્ટુડિયો ટીમને દિવાળી અને નવા વર્ષની હાર્દિક શુભકામનાઓ! નવું વર્ષ તમારા માટે સુખ, શાંતિ, સમૃદ્ધિ અને અનેક શાનદાર વેડિંગ પ્રોજેક્ટ્સ લઈને આવે એવી પ્રભુ ચરણોમાં પ્રાર્થના.
+      </p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding: 28px 24px;">
+      <div style="text-align: center; margin-bottom: 20px; padding: 12px; background-color: #FEF3C7; border: 1px solid #FCD34D; border-radius: 12px;">
+        <span style="font-size: 12px; font-weight: bold; color: #92400E; display: block;">
+          મુહૂર્ત સ્લોટ બુકિંગ રિક્વેસ્ટ નોંધાઈ ગઈ છે
+        </span>
+        <div style="font-size: 18px; font-weight: 800; color: #6B2E4C; margin-top: 2px; font-family: monospace;">
+          કોડ: ${bookingCode}
+        </div>
+      </div>
+
+      <p style="font-size: 14px; line-height: 1.6; margin: 0 0 14px;">
+        નમસ્તે <strong>${studioName || clientName}</strong>,
+      </p>
+      <p style="font-size: 13px; line-height: 1.6; color: #4A4A4C; margin: 0 0 16px;">
+        લાભ પાંચમના શુભ મુહૂર્તમાં તમારા વેડિંગ પ્રોજેક્ટ માટે સ્લોટ બુકિંગ રિક્વેસ્ટ અમને મળી ગઈ છે. નીચે તમારી બુકિંગ વિગતો છે:
+      </p>
+
+      <!-- Details Table -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; background-color: #FAF8F5; border-radius: 12px; overflow: hidden; border: 1px solid #E5E5EA;">
+        <tbody>
+          <tr style="border-bottom: 1px solid #E5E5EA;">
+            <td style="padding: 10px 14px; color: #8E8E93; width: 40%;">સ્ટુડિયો / ક્લાયન્ટ</td>
+            <td style="padding: 10px 14px; font-weight: bold; color: #1C1C1E;">${studioName}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #E5E5EA;">
+            <td style="padding: 10px 14px; color: #8E8E93;">પ્રોજેક્ટ (કપલ)</td>
+            <td style="padding: 10px 14px; font-weight: bold; color: #1C1C1E;">${clientName}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #E5E5EA;">
+            <td style="padding: 10px 14px; color: #8E8E93;">પસંદ કરેલ સર્વિસ</td>
+            <td style="padding: 10px 14px; font-weight: bold; color: #6B2E4C;">${packageName}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #E5E5EA;">
+            <td style="padding: 10px 14px; color: #8E8E93;">એડિટિંગ સ્લોટ તારીખ</td>
+            <td style="padding: 10px 14px; font-weight: bold; color: #1C1C1E; font-family: monospace;">${slotDate}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #E5E5EA;">
+            <td style="padding: 10px 14px; color: #8E8E93;">અંદાજિત માસ્ટર ડિલિવરી</td>
+            <td style="padding: 10px 14px; font-weight: bold; color: #16A34A; font-family: monospace;">${deliveryDate}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #E5E5EA;">
+            <td style="padding: 10px 14px; color: #8E8E93;">૧૫% મુહૂર્ત ફાઇનલ ભાવ</td>
+            <td style="padding: 10px 14px; font-weight: bold; color: #92400E; font-family: monospace;">₹${(pricing?.totalAmount || 0).toLocaleString("en-IN")}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 14px; color: #8E8E93;">ટોકન એડવાન્સ</td>
+            <td style="padding: 10px 14px; font-weight: bold; color: #B45309; font-family: monospace;">₹1,000 (ચકાસણી પ્રક્રિયામાં)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Strict Payment Verification Notice -->
+      <div style="background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 14px; margin-bottom: 20px; font-size: 12px; color: #991B1B; line-height: 1.5;">
+        <strong>⚠️ પેમેન્ટ વેરિફિકેશન સૂચના:</strong><br>
+        જ્યાં સુધી તમારા ₹૧,૦૦૦ ટોકન પેમેન્ટનો સ્ક્રીનશૉટ અમારા સત્તાવાર WhatsApp પર વેરિફાય નહીં થાય ત્યાં સુધી સ્લોટ બુક થયેલો ગણાશે નહીં. જો તમે હજી સ્ક્રીનશૉટ ન મોકલ્યો હોય, તો કૃપા કરીને નીચેના બટન પર ક્લિક કરીને મોકલી આપો:
+      </div>
+
+      <!-- WhatsApp Button in Email -->
+      <div style="text-align: center; margin-bottom: 20px;">
+        <a href="https://wa.me/918866323567?text=${encodeURIComponent(`નમસ્તે RSE સ્ટુડિયો,\n\nમેં 'લાભ પાંચમ મુહૂર્ત ઓફર '26' હેઠળ સ્લોટ બુકિંગ #${bookingCode} (${clientName}) માટે ₹1,000 ટોકન એડવાન્સ પેમેન્ટ કર્યું છે. પેમેન્ટનો સ્ક્રીનશૉટ આ સાથે જોડ્યો છે.`)}" style="display: inline-block; background-color: #16A34A; color: #ffffff; padding: 12px 24px; border-radius: 12px; font-size: 13px; font-weight: bold; text-decoration: none; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);">
+          📲 WhatsApp પર પેમેન્ટ સ્ક્રીનશૉટ મોકલો (+91 8866323567)
+        </a>
+      </div>
+
+      <p style="font-size: 12px; color: #8E8E93; line-height: 1.5; margin: 0; text-align: center;">
+        કોઈપણ પ્રશ્ન હોય તો તમે સીધા આ ઈમેઇલનો જવાબ આપી શકો છો અથવા +91 8866323567 પર સંપર્ક કરી શકો છો.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background-color: #FAF8F5; border-top: 1px solid #E5E5EA; padding: 16px 24px; text-align: center; font-size: 11px; color: #8E8E93;">
+      <strong>RSE Post Production House</strong> • ગાંધીનગર, ગુજરાત<br>
+      ઈમેઇલ: ${senderEmail} • વેબસાઇટ: <a href="https://book.rsegnr.in" style="color: #6B2E4C; text-decoration: none; font-weight: bold;">book.rsegnr.in</a>
+    </div>
+  </div>
+</body>
+</html>
+      `.trim();
+
+      const result = await sendZohoEmail({
+        to: clientEmail,
+        subject,
+        text: textBody,
+        html: htmlBody,
+      });
+
+      // Also alert studio admins
+      sendZohoEmail({
+        to: adminAlertRecipients,
+        subject: `[🪔 મુહૂર્ત બુકિંગ રિક્વેસ્ટ] ${bookingCode} - ${studioName} (${clientName})`,
+        text: `નવું લાભ પાંચમ મુહૂર્ત બુકિંગ આવ્યું છે:\nકોડ: ${bookingCode}\nસ્ટુડિયો: ${studioName}\nકપલ: ${clientName}\nફોન: ${phone}\nઈમેઇલ: ${clientEmail}\nસ્લોટ તારીખ: ${slotDate}\nરકમ: ₹${pricing?.totalAmount}\nટોકન: ₹1,000\nWhatsApp: +91 8866323567`,
+      }).catch((e) => console.error("Admin alert error:", e));
+
+      return NextResponse.json({ success: result.success, message: result.message });
+    }
+
+    // 2. FOOTAGE DELAY REMINDER EMAIL
     if (type === "footage_reminder") {
       const subject = `⚠️ [Urgent Action Required] Footage Deadline Reminder for Slot ${bookingCode} • RSE Post Production House`;
       
