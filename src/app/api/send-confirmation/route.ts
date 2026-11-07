@@ -258,7 +258,7 @@ ${senderEmail} • https://rsegnr.in
       <div style="margin: 24px 0; font-size: 13px; line-height: 1.7; color: #444;">
         <strong style="color: #0f0f10; display: block; margin-bottom: 6px;">Next Production Milestones:</strong>
         1. <strong>Footage Ingest:</strong> Data reaches studio / cloud link by 6:00 PM before your slot date (Ingested to Adobe Premiere Pro / FCP X master stations).<br>
-        2. <strong>Music Direction & Color:</strong> Narrative edit synced, graded in DaVinci Resolve Studio.<br>
+        2. <strong>Music Direction & Color:</strong> Narrative edit synced, graded in cinematic 4K color & master sound.<br>
         3. <strong>Master Review:</strong> High-bitrate 4K preview delivered on Frame.io (7-day revision window).
       </div>
 

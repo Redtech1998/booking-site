@@ -16,14 +16,14 @@ export const metadata: Metadata = {
     template: "%s | RSE Post Production House",
   },
   description:
-    "Official client booking portal for RSE Post Production House, Gandhinagar. Industry-standard wedding film editing in Adobe Premiere Pro & Apple FCP X, paired with DaVinci Resolve color grading. Instant courier intake, live tracking & 100% on-time delivery.",
+    "Official client booking portal for RSE Post Production House, Gandhinagar. Industry-standard wedding film editing in Adobe Premiere Pro & Apple FCP X, paired with cinematic 4K color grading. Instant courier intake, live tracking & 100% on-time delivery.",
   keywords: [
     "adobe premiere pro video editing",
     "final cut pro x wedding editor",
     "fcpx wedding video editing studio",
     "wedding video editing gandhinagar",
     "wedding film editing studio gujarat",
-    "davinci resolve color grading ahmedabad",
+    "cinematic 4k color grading ahmedabad",
     "cinematic wedding highlight editor",
     "wedding teaser editing service",
     "post production house gandhinagar",
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Book Wedding Video Editing & Color Grading | RSE Post Production House",
     description:
-      "Book premium wedding video editing, highlight teasers, and DaVinci Resolve color grading. Instant courier intake & live project tracking in Gandhinagar, Gujarat.",
+      "Book premium wedding video editing, highlight teasers, and cinematic 4K color grading. Instant courier intake & live project tracking in Gandhinagar, Gujarat.",
     url: "https://book.rsegnr.in",
     siteName: "RSE Post Production House",
     images: [
@@ -75,7 +75,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Book Wedding Video Editing | RSE Post Production House",
     description:
-      "Cinema wedding highlight editing, teaser cuts, and DaVinci Resolve color grading. Book online with instant courier intake.",
+      "Cinema wedding highlight editing, teaser cuts, and cinematic 4K color grading. Book online with instant courier intake.",
     images: ["/rse-logo.png"],
   },
   icons: {
@@ -99,7 +99,7 @@ const jsonLd = {
   logo: "https://book.rsegnr.in/rse-logo.png",
   image: "https://book.rsegnr.in/rse-logo.png",
   description:
-    "Specialist wedding video editing (Adobe Premiere Pro & Apple FCP X) and DaVinci Resolve color grading post-production studio based in Gandhinagar, Gujarat.",
+    "Specialist wedding video editing (Adobe Premiere Pro & Apple FCP X) and cinematic 4K color grading post-production studio based in Gandhinagar, Gujarat.",
   telephone: "+919313553726",
   email: "Hello@rse-edit.com",
   address: {

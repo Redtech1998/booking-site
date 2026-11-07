@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "RSE Post Production House",
     short_name: "RSE Edit",
-    description: "Bespoke Wedding Film Editing & DaVinci Resolve Color Grading",
+    description: "Bespoke Wedding Film Editing & Cinematic 4K Color Grading",
     start_url: "/book",
     display: "standalone",
     background_color: "#faf8f5",

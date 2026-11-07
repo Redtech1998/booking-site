@@ -103,7 +103,7 @@ const STAGES: {
     label: "ફાઇનલ એડિટિંગ",
     countColor: "bg-purple-100 text-purple-900 border-purple-300",
     badgeBg: "bg-purple-50 text-purple-800 border-purple-200",
-    description: "DaVinci Color & Sound",
+    description: "Color Grading & Sound",
   },
   {
     id: "preview_sent",
@@ -238,7 +238,7 @@ export default function RseOsPage() {
       case "in_selection_cut":
         return `નમસ્તે ${studio},\nઆપના પ્રોજેક્ટ ${code} (${couple}) નું Premiere Pro માં કલિંગ અને રફ કટ એડિટિંગ શરૂ થઈ ગયું છે.\nઅંદાજિત ડિલિવરી તારીખ: ${date}\n- RSE Post Production House`;
       case "in_edit_polish":
-        return `નમસ્તે ${studio},\nઆપના પ્રોજેક્ટ ${code} (${couple}) નું કલર ગ્રેડિંગ (DaVinci Resolve) અને સાઉન્ડ એડિટિંગ ચાલુ છે.\n- RSE Post Production House`;
+        return `નમસ્તે ${studio},\nઆપના પ્રોજેક્ટ ${code} (${couple}) નું સિનેમેટિક કલર ગ્રેડિંગ અને સાઉન્ડ એડિટિંગ ચાલુ છે.\n- RSE Post Production House`;
       case "preview_sent":
       case "in_client_review": {
         const link = booking.frameIoLink || "Frame.io લિંક ટૂંક સમયમાં મોકલાશે";
@@ -4975,7 +4975,7 @@ export default function RseOsPage() {
                     </h1>
                   </div>
                   <p className="text-2xs font-semibold text-[#6B2E4C] uppercase tracking-wider mt-1">
-                    Boutique Wedding Video Editing & DaVinci Resolve Color Grading
+                    Boutique Wedding Video Editing & Cinema 4K Color Grading
                   </p>
                   <p className="text-xs text-[#8E8E93] mt-1">
                     Gandhinagar, Gujarat, India • Email: Keyur@rse-edit.com • Web: book.rsegnr.in
@@ -5055,7 +5055,7 @@ export default function RseOsPage() {
                           <td className="px-4 py-3 font-medium text-[#1C1C1E]">
                             <div>{item.description}</div>
                             <div className="text-2xs text-[#8E8E93]">
-                              DaVinci Color Graded + Audio Mastered (ProRes 422 / 4K)
+                              Cinema Color Graded + Audio Mastered (ProRes 422 / 4K)
                             </div>
                           </td>
                           <td className="px-4 py-3 font-mono font-bold text-center text-[#6B2E4C]">

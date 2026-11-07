@@ -558,7 +558,7 @@ export default function BookingPortalPage() {
           </div>
           <div className="flex items-center space-x-3 text-[11px] text-[#f5e6cc]/90">
             <span className="hidden sm:inline">• Adobe Premiere Pro & Apple FCP X</span>
-            <span>• DaVinci Resolve Cinema Color Grading</span>
+            <span>• Cinema 4K Color Grading & Audio Mastering</span>
             <span>• 100% On-Time Delivery Guarantee</span>
           </div>
         </div>

@@ -353,7 +353,7 @@ export default function LabhPanchamOfferPage() {
               <div className="p-3 rounded-2xl bg-white/10 border border-amber-300/30 backdrop-blur-sm flex items-center space-x-2.5">
                 <span className="text-2xl shrink-0">🎨</span>
                 <div>
-                  <div className="text-xs font-bold text-amber-300">DaVinci 4K કલર ગ્રેડિંગ</div>
+                  <div className="text-xs font-bold text-amber-300">સિનેમેટિક 4K કલર ગ્રેડિંગ</div>
                   <div className="text-2xs text-amber-100/80">Frame.io પ્રિવ્યુ & ફ્રી રિવિઝન</div>
                 </div>
               </div>
@@ -481,7 +481,7 @@ export default function LabhPanchamOfferPage() {
                 {
                   id: "in_wedding_highlight",
                   name: "Wedding Highlight (૩ થી ૫ મિનિટ)",
-                  desc: "ટીઝર + સોંગ હાઇલાઇટ, DaVinci Resolve સિનેમેટિક કલર ગ્રેડિંગ",
+                  desc: "ટીઝર + સોંગ હાઇલાઇટ, સિનેમેટિક 4K કલર ગ્રેડિંગ",
                   defaultDuration: "05:00",
                   placeholder: "દા.ત. 05:00 (5 મિનિટ)",
                   unitNote: "મૂળ ભાવ: ₹1,251/મિનિટ → 15% મુહૂર્ત ઑફર: ₹1,063/મિનિટ",
