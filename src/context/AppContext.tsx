@@ -159,8 +159,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const lv = localStorage.getItem("rse_leaves_v2");
       if (lv) setLeaveRequests(JSON.parse(lv));
 
-      const b = localStorage.getItem("rse_bookings_v2");
-      if (b) setBookings(JSON.parse(b));
+      // Force purge legacy dummy bookings from browser cache
+      try {
+        const legacyB = localStorage.getItem("rse_bookings_v2");
+        if (legacyB) {
+          localStorage.removeItem("rse_bookings_v2");
+        }
+        const b = localStorage.getItem("rse_bookings_v3");
+        if (b) {
+          const parsed = JSON.parse(b);
+          if (Array.isArray(parsed) && parsed.some((x: any) => x.coupleNames === "Karan & Tanya" || x.code === "RSE/NOV/001")) {
+            localStorage.setItem("rse_bookings_v3", JSON.stringify([]));
+            setBookings([]);
+          } else {
+            setBookings(parsed);
+          }
+        } else {
+          setBookings([]);
+        }
+      } catch (_) {
+        setBookings([]);
+      }
 
       const c = localStorage.getItem("rse_clients_v2");
       if (c) setClients(JSON.parse(c));
@@ -249,7 +268,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("rse_staff_v2", JSON.stringify(staff));
       localStorage.setItem("rse_attendance_v2", JSON.stringify(attendance));
       localStorage.setItem("rse_leaves_v2", JSON.stringify(leaveRequests));
-      localStorage.setItem("rse_bookings_v2", JSON.stringify(bookings));
+      localStorage.setItem("rse_bookings_v3", JSON.stringify(bookings));
       localStorage.setItem("rse_clients_v2", JSON.stringify(clients));
       localStorage.setItem("rse_invoices_v2", JSON.stringify(invoices));
       localStorage.setItem("rse_services_v2", JSON.stringify(services));
