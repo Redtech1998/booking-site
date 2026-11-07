@@ -256,3 +256,50 @@ export function calculateRsePrice(
     breakdownText: "Custom Quote / ચર્ચા મુજબ નક્કી થશે",
   };
 }
+
+// ─── Diwali & Labh Pancham Muhurat Special Offer (15% Flat Discount + ₹1,000 Token) ───
+
+export const LABH_PANCHAM_OFFER_DEADLINE = "2026-11-14T23:59:59+05:30";
+
+export function isLabhPanchamActive(): boolean {
+  try {
+    return new Date() <= new Date(LABH_PANCHAM_OFFER_DEADLINE);
+  } catch (_) {
+    return false;
+  }
+}
+
+export interface LabhPanchamPriceResult {
+  originalPrice: number;
+  discountPercent: number; // 15
+  discountAmount: number;
+  offerPrice: number;
+  tokenAdvance: number; // 1000
+  balanceDue: number;
+  breakdownText: string;
+}
+
+export function calculateLabhPanchamPrice(
+  serviceId: string,
+  durationInput: string = "",
+  customBasePrice?: number
+): LabhPanchamPriceResult {
+  const std = calculateRsePrice(serviceId, durationInput, customBasePrice);
+  const originalPrice = std.totalAmount;
+  const discountPercent = 15;
+  const discountAmount = Math.round(originalPrice * 0.15);
+  const offerPrice = Math.max(0, originalPrice - discountAmount);
+  const tokenAdvance = 1000;
+  const balanceDue = Math.max(0, offerPrice - tokenAdvance);
+
+  return {
+    originalPrice,
+    discountPercent,
+    discountAmount,
+    offerPrice,
+    tokenAdvance,
+    balanceDue,
+    breakdownText: `મૂળ ભાવ ₹${originalPrice.toLocaleString("en-IN")} માંથી ૧૫% મુહૂર્ત ડિસ્કાઉન્ટ (-₹${discountAmount.toLocaleString("en-IN")}) બાદ ફાઇનલ ભાવ ₹${offerPrice.toLocaleString("en-IN")}. માત્ર ₹1,000 માં સ્લોટ લોક.`,
+  };
+}
+

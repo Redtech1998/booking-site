@@ -1280,6 +1280,7 @@ export default function RseOsPage() {
                             const isFootageDelayed =
                               item.status === "awaiting_footage" &&
                               new Date(item.slotDate) <= new Date();
+                            const isLabhPancham = item.offerType === "labh_pancham_2026";
                             const isCurrentlyDragged = draggedBookingId === item.id;
                             const dateInfo = getDateStatus(item.slotDate, item.deliveryDate);
 
@@ -1297,8 +1298,12 @@ export default function RseOsPage() {
                                   setDragOverStageId(null);
                                 }}
                                 onClick={() => setSelectedBookingForDetails(item)}
-                                className={`apple-glass-card p-3 rounded-2xl space-y-2 cursor-pointer active:cursor-grabbing hover:border-[#6B2E4C]/60 hover:shadow-md transition shadow-xs ${
-                                  isFootageDelayed ? "border-red-400 bg-red-50/40" : "bg-white"
+                                className={`apple-glass-card p-3 rounded-2xl space-y-2 cursor-pointer active:cursor-grabbing transition shadow-xs ${
+                                  isLabhPancham
+                                    ? "border-2 border-amber-400 bg-gradient-to-br from-amber-50/90 via-white to-orange-50/40 shadow-[0_4px_16px_rgba(245,158,11,0.22)] hover:border-amber-500 hover:shadow-md"
+                                    : isFootageDelayed
+                                    ? "border-red-400 bg-red-50/40 hover:border-[#6B2E4C]/60 hover:shadow-md"
+                                    : "bg-white hover:border-[#6B2E4C]/60 hover:shadow-md"
                                 } ${
                                   isCurrentlyDragged
                                     ? "opacity-30 scale-95 border-2 border-dashed border-[#6B2E4C]"
@@ -1376,6 +1381,19 @@ export default function RseOsPage() {
                                     )}
                                   </div>
                                 </div>
+
+                                {/* Labh Pancham Festive Badge */}
+                                {isLabhPancham && (
+                                  <div className="flex items-center justify-between px-2 py-1 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border border-amber-400/60 text-2xs font-bold text-amber-950 shadow-xs">
+                                    <span className="flex items-center space-x-1">
+                                      <span className="text-xs animate-pulse">🪔</span>
+                                      <span>લાભ પાંચમ (15% OFF)</span>
+                                    </span>
+                                    <span className="font-mono text-2xs font-extrabold text-emerald-800 bg-white/95 px-1.5 py-0.2 rounded-md border border-emerald-300">
+                                      ₹1,000 ટોકન
+                                    </span>
+                                  </div>
+                                )}
 
                                 {/* Body: Couple Names & Studio */}
                                 <div>
@@ -1583,15 +1601,30 @@ export default function RseOsPage() {
                       ) : (
                         filteredCalendarBookings.map((b) => {
                           const dateInfo = getDateStatus(b.slotDate, b.deliveryDate);
+                          const isLabhPancham = b.offerType === "labh_pancham_2026";
                           return (
-                            <tr key={b.id} className="hover:bg-[#F8F7F4]/60 transition">
+                            <tr
+                              key={b.id}
+                              className={`transition ${
+                                isLabhPancham
+                                  ? "bg-amber-50/60 hover:bg-amber-100/60 border-l-4 border-amber-400"
+                                  : "hover:bg-[#F8F7F4]/60"
+                              }`}
+                            >
                               <td className="px-3 py-2.5 whitespace-nowrap">
                                 <span className={`px-2 py-0.5 rounded-lg border text-2xs font-semibold ${dateInfo.badge}`}>
                                   {dateInfo.label}
                                 </span>
                               </td>
                               <td className="px-3 py-2.5">
-                                <p className="font-mono font-bold text-[#6B2E4C] text-2xs">{b.code}</p>
+                                <div className="flex items-center space-x-1.5">
+                                  <span className="font-mono font-bold text-[#6B2E4C] text-2xs">{b.code}</span>
+                                  {isLabhPancham && (
+                                    <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300 font-bold text-2xs">
+                                      🪔 મુહૂર્ત 15% OFF
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="font-bold text-[#1C1C1E]">{b.coupleNames}</p>
                                 <p className="text-2xs text-[#8E8E93] truncate max-w-[140px]">{b.studioOrClient}</p>
                               </td>
@@ -1659,9 +1692,15 @@ export default function RseOsPage() {
                                 <span className="block font-mono font-bold text-[#1C1C1E]">
                                   ₹{(b.pricing?.totalAmount || 0).toLocaleString("en-IN")}
                                 </span>
-                                <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-emerald-100 text-emerald-800 font-semibold">
-                                  ૫૦% એડવાન્સ ✓
-                                </span>
+                                {isLabhPancham ? (
+                                  <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-amber-100 text-amber-900 border border-amber-300 font-bold">
+                                    ₹1,000 ટોકન જમા
+                                  </span>
+                                ) : (
+                                  <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-emerald-100 text-emerald-800 font-semibold">
+                                    ૫૦% એડવાન્સ ✓
+                                  </span>
+                                )}
                               </td>
                               <td className="px-3 py-2.5 whitespace-nowrap text-right space-x-1.5">
                                 <button
@@ -2511,7 +2550,11 @@ export default function RseOsPage() {
                     return (
                       <div
                         key={task.id}
-                        className="apple-glass-card rounded-2xl p-4 space-y-3 shadow-md bg-white border border-[#E5E5EA]"
+                        className={`apple-glass-card rounded-2xl p-4 space-y-3 shadow-md border ${
+                          task.offerType === "labh_pancham_2026"
+                            ? "border-2 border-amber-400 bg-gradient-to-br from-amber-50/70 via-white to-orange-50/30 shadow-[0_4px_16px_rgba(245,158,11,0.2)]"
+                            : "bg-white border-[#E5E5EA]"
+                        }`}
                       >
                         <div className="flex items-center justify-between text-2xs">
                           <span className={`px-2 py-0.5 rounded-lg border text-2xs font-semibold ${dateInfo.badge}`}>
@@ -2519,6 +2562,18 @@ export default function RseOsPage() {
                           </span>
                           <span className="font-mono font-bold text-[#6B2E4C]">{task.code}</span>
                         </div>
+
+                        {task.offerType === "labh_pancham_2026" && (
+                          <div className="flex items-center justify-between px-2 py-1 rounded-xl bg-amber-100 text-amber-950 border border-amber-300 text-2xs font-bold">
+                            <span className="flex items-center space-x-1">
+                              <span>🪔</span>
+                              <span>લાભ પાંચમ મુહૂર્ત (15% OFF)</span>
+                            </span>
+                            <span className="font-mono text-2xs font-extrabold text-emerald-800 bg-white/90 px-1.5 py-0.2 rounded border border-emerald-300">
+                              ₹1,000 ટોકન
+                            </span>
+                          </div>
+                        )}
 
                       <div>
                         <h4 className="font-bold text-sm text-[#1C1C1E]">{task.coupleNames}</h4>
@@ -3937,6 +3992,31 @@ export default function RseOsPage() {
             ) : (
               /* MODE 2: VIEW DETAILS (With quick edit triggers) */
               <div className="space-y-3">
+                {/* Special Labh Pancham 2026 Notice in Details Modal */}
+                {selectedBookingForDetails.offerType === "labh_pancham_2026" && (
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-100/90 via-orange-100/70 to-amber-100/90 border-2 border-amber-400 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm">
+                    <div className="flex items-center space-x-2.5">
+                      <span className="text-2xl shrink-0">🪔</span>
+                      <div>
+                        <div className="font-extrabold text-xs text-[#6B2E4C] flex items-center space-x-1.5">
+                          <span>RSE લાભ પાંચમ મુહૂર્ત બુકિંગ ઑફર '26</span>
+                          <span className="px-1.5 py-0.2 rounded bg-amber-400 text-[#6B2E4C] font-black text-2xs">
+                            15% OFF
+                          </span>
+                        </div>
+                        <div className="text-2xs text-amber-900 font-medium">
+                          ઇન્ડિયન ક્લાયન્ટ સ્પેશિયલ મુહૂર્ત ઑફર • માત્ર ₹1,000 ટોકન એડવાન્સ પર સ્લોટ કન્ફર્મ
+                        </div>
+                      </div>
+                    </div>
+                    <div className="sm:text-right shrink-0">
+                      <div className="font-mono text-xs font-black text-emerald-800 bg-white/90 px-2 py-1 rounded-lg border border-emerald-300">
+                        ટોકન પેમેન્ટ: ₹1,000 જમા ✓
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[#E5E5EA] pb-2">
                   <div>
                     <h4 className="font-extrabold text-base text-[#1C1C1E]">

@@ -9,6 +9,7 @@ import {
   ServiceDefinition,
 } from "@/data/servicesData";
 import { RegionType, DeliveryMethod, Booking } from "@/types";
+import { isLabhPanchamActive } from "@/lib/pricingCalculator";
 import {
   detectDialCode,
   normalizeWhatsAppDigits,
@@ -562,6 +563,30 @@ export default function BookingPortalPage() {
           </div>
         </div>
       </div>
+
+      {/* ── 01.5) FESTIVE LABH PANCHAM MUHURAT OFFER BANNER ── */}
+      {isLabhPanchamActive() && (
+        <Link
+          href="/labh-pancham"
+          className="block bg-gradient-to-r from-[#6b2e4c] via-[#9e3a64] to-[#6b2e4c] text-[#f5e6cc] py-2 px-4 text-xs font-semibold hover:brightness-110 transition shadow-sm border-b border-amber-400/40 group"
+        >
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 text-center sm:text-left">
+            <div className="flex items-center space-x-2">
+              <span className="text-base animate-pulse">🪔</span>
+              <span className="font-bold text-amber-200">
+                શુભ લાભ પાંચમ મુહૂર્ત બુકિંગ ઑફર '26:
+              </span>
+              <span className="text-white">
+                ઇન્ડિયન પ્રોજેક્ટ્સ પર ફ્લેટ ૧૫% ડિસ્કાઉન્ટ • માત્ર ₹૧,૦૦૦ માં સ્લોટ લોક કરો!
+              </span>
+            </div>
+            <div className="inline-flex items-center space-x-1 font-bold bg-amber-400 text-[#6b2e4c] px-3 py-1 rounded-full text-2xs group-hover:scale-105 transition-transform shadow-xs">
+              <span>સ્પેશિયલ મુહૂર્ત ઑફર પેજ પર જાઓ</span>
+              <span>→</span>
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* ── Official Header ── */}
       <header className="border-b border-[#e5e5e5] bg-white sticky top-0 z-40 shadow-sm">
@@ -1287,6 +1312,21 @@ export default function BookingPortalPage() {
                       <p className="text-xs text-[#666] font-normal mt-0.5">
                         Highlights, short films, multicam traditional, reels & fast HDD/Drive sync
                       </p>
+                      {isLabhPanchamActive() && (
+                        <div className="mt-2.5 pt-2 border-t border-[#6b2e4c]/20 flex items-center justify-between">
+                          <span className="text-2xs font-extrabold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md flex items-center space-x-1">
+                            <span>🪔</span>
+                            <span>લાભ પાંચમ ઑફર: 15% OFF</span>
+                          </span>
+                          <Link
+                            href="/labh-pancham"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-2xs font-bold text-[#6b2e4c] underline hover:text-[#9e3a64]"
+                          >
+                            મુહૂર્ત સ્લોટ →
+                          </Link>
+                        </div>
+                      )}
                     </button>
 
                     <button

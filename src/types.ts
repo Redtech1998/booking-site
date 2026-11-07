@@ -145,7 +145,12 @@ export interface Booking {
   ndaAccepted?: boolean;
   ndaAcceptedAt?: string;
 
-  // Financials (50% / 50% Terms)
+  // Festive Campaigns & Offers (e.g. લાભ પાંચમ મુહૂર્ત)
+  offerType?: "labh_pancham_2026" | "regular";
+  discountPercent?: number;       // e.g. 15
+  paymentScreenshotSent?: boolean; // Payment screenshot via WhatsApp
+
+  // Financials (50% / 50% Terms or Token Advance)
   pricing: BookingPricing;
 
   // Pipeline Status & Execution
