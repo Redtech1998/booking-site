@@ -2479,13 +2479,6 @@ export default function BookingPortalPage() {
           >
             Support: +91 93135 53726
           </a>
-          <span className="text-[#ccc]">•</span>
-          <Link
-            href="/os"
-            className="text-[#6b2e4c] font-semibold hover:underline"
-          >
-            Studio Staff • RSE | OS
-          </Link>
         </div>
         <p className="text-[11px] text-[#999] pt-1">
           © {new Date().getFullYear()} RSE Post Production House. All rights reserved. 100% NDA Protected.

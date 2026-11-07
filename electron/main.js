@@ -4,7 +4,7 @@ const http = require("http");
 // Disable GPU compositing to prevent mailbox overlay errors on macOS Apple Silicon
 app.commandLine.appendSwitch("disable-gpu-compositing");
 
-const BASE_URL = "http://localhost:3100";
+const BASE_URL = "http://localhost:3100/os";
 
 function waitForServer(url, timeoutMs = 30000) {
   const startTime = Date.now();

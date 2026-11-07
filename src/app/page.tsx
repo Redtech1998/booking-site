@@ -1,1 +1,1 @@
-export { default } from "./os/page";
+export { default } from "./book/page";

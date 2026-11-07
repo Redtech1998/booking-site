@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
 import { convertIndicDigitsToAscii } from "@/lib/phone";
@@ -180,6 +180,25 @@ export default function RseOsPage() {
     findNextAvailableSlot,
     lastSyncedAt,
   } = useApp();
+
+  // Defense-in-depth: Strictly block OS on public website domain (book.rsegnr.in)
+  // OS is reserved for the internal Studio Electron desktop app on localhost
+  const [isBlockedDomain, setIsBlockedDomain] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hostname = window.location.hostname;
+      const isPublic = !hostname.includes("localhost") && !hostname.includes("127.0.0.1");
+      if (isPublic) {
+        setIsBlockedDomain(true);
+        window.location.replace("/");
+      }
+    }
+  }, []);
+
+  if (isBlockedDomain) {
+    return null;
+  }
 
   // Cloud Sync notification toast
   const [syncNotice, setSyncNotice] = useState<string | null>(null);

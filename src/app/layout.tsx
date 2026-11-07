@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "RSE | OS",
+    title: "RSE Booking Portal",
   },
   robots: {
     index: true,

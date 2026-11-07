@@ -13,19 +13,13 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 1. If accessing via os.rsegnr.in (or local test os.localhost)
-  const isOsSubdomain =
-    host.startsWith("os.") ||
-    host.includes("os.rsegnr.in") ||
-    host.includes("os.localhost");
-
-  if (isOsSubdomain) {
-    // If accessing root "/" on os.rsegnr.in, rewrite internally to "/os"
-    if (pathname === "/") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/os";
-      return NextResponse.rewrite(url);
-    }
+  // 1. Strictly block /os from public websites (book.rsegnr.in, vercel.app, etc.)
+  // /os is exclusively reserved for the internal Studio Electron desktop app on localhost
+  const isLocal = host.includes("localhost") || host.includes("127.0.0.1");
+  if (!isLocal && pathname.startsWith("/os")) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
@@ -33,12 +27,6 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };
