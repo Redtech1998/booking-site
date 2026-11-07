@@ -1384,14 +1384,44 @@ export default function RseOsPage() {
 
                                 {/* Labh Pancham Festive Badge */}
                                 {isLabhPancham && (
-                                  <div className="flex items-center justify-between px-2 py-1 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border border-amber-400/60 text-2xs font-bold text-amber-950 shadow-xs">
-                                    <span className="flex items-center space-x-1">
-                                      <span className="text-xs animate-pulse">🪔</span>
-                                      <span>લાભ પાંચમ (15% OFF)</span>
-                                    </span>
-                                    <span className="font-mono text-2xs font-extrabold text-emerald-800 bg-white/95 px-1.5 py-0.2 rounded-md border border-emerald-300">
-                                      ₹1,000 ટોકન
-                                    </span>
+                                  <div className="space-y-1">
+                                    <div className="flex items-center justify-between px-2 py-1 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border border-amber-400/60 text-2xs font-bold text-amber-950 shadow-xs">
+                                      <span className="flex items-center space-x-1">
+                                        <span className="text-xs animate-pulse">🪔</span>
+                                        <span>લાભ પાંચમ (15% OFF)</span>
+                                      </span>
+                                      {item.pricing?.advancePaid ? (
+                                        <span className="font-mono text-2xs font-extrabold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded-md border border-emerald-300">
+                                          ✓ કન્ફર્મ
+                                        </span>
+                                      ) : (
+                                        <span className="font-mono text-2xs font-extrabold text-red-800 bg-red-100 px-1.5 py-0.2 rounded-md border border-red-300">
+                                          ⚠️ પેમેન્ટ બાકી
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* 1-Click Admin Verify Advance */}
+                                    {!item.pricing?.advancePaid && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateBooking({
+                                            ...item,
+                                            pricing: {
+                                              ...item.pricing,
+                                              advancePaid: true,
+                                            },
+                                            notes: `${item.notes || ""} | [✓ ₹1,000 પેમેન્ટ વેરિફાય & સ્લોટ કન્ફર્મ]`,
+                                          });
+                                        }}
+                                        className="w-full py-1 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-2xs shadow-xs transition flex items-center justify-center space-x-1"
+                                        title="WhatsApp સ્ક્રીનશૉટ જોઈને ₹1,000 પેમેન્ટ મંજૂર કરો"
+                                      >
+                                        <span>✓ ₹1,000 મળ્યા (કન્ફર્મ)</span>
+                                      </button>
+                                    )}
                                   </div>
                                 )}
 
@@ -1693,9 +1723,15 @@ export default function RseOsPage() {
                                   ₹{(b.pricing?.totalAmount || 0).toLocaleString("en-IN")}
                                 </span>
                                 {isLabhPancham ? (
-                                  <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-amber-100 text-amber-900 border border-amber-300 font-bold">
-                                    ₹1,000 ટોકન જમા
-                                  </span>
+                                  b.pricing?.advancePaid ? (
+                                    <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold">
+                                      ✓ ₹1,000 કન્ફર્મ
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-red-100 text-red-900 border border-red-300 font-bold">
+                                      ⚠️ ₹1,000 પેમેન્ટ બાકી
+                                    </span>
+                                  )
                                 ) : (
                                   <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-emerald-100 text-emerald-800 font-semibold">
                                     ૫૦% એડવાન્સ ✓
@@ -4005,14 +4041,37 @@ export default function RseOsPage() {
                           </span>
                         </div>
                         <div className="text-2xs text-amber-900 font-medium">
-                          ઇન્ડિયન ક્લાયન્ટ સ્પેશિયલ મુહૂર્ત ઑફર • માત્ર ₹1,000 ટોકન એડવાન્સ પર સ્લોટ કન્ફર્મ
+                          {selectedBookingForDetails.pricing?.advancePaid
+                            ? "✓ ₹1,000 ટોકન પેમેન્ટ વેરિફાય થઈ ગયું છે. સ્લોટ સત્તાવાર કન્ફર્મ છે."
+                            : "⚠️ ₹1,000 પેમેન્ટ હજી વેરિફાય થયું નથી. પેમેન્ટ વગર સ્લોટ બુક થયેલો ગણાશે નહીં."}
                         </div>
                       </div>
                     </div>
                     <div className="sm:text-right shrink-0">
-                      <div className="font-mono text-xs font-black text-emerald-800 bg-white/90 px-2 py-1 rounded-lg border border-emerald-300">
-                        ટોકન પેમેન્ટ: ₹1,000 જમા ✓
-                      </div>
+                      {selectedBookingForDetails.pricing?.advancePaid ? (
+                        <div className="font-mono text-xs font-black text-emerald-800 bg-white/90 px-2 py-1 rounded-lg border border-emerald-300">
+                          ✓ સ્લોટ કન્ફર્મ
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = {
+                              ...selectedBookingForDetails,
+                              pricing: {
+                                ...selectedBookingForDetails.pricing,
+                                advancePaid: true,
+                              },
+                              notes: `${selectedBookingForDetails.notes || ""} | [✓ ₹1,000 પેમેન્ટ વેરિફાય & કન્ફર્મ]`,
+                            };
+                            updateBooking(updated);
+                            setSelectedBookingForDetails(updated);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition"
+                        >
+                          ✓ ₹1,000 પેમેન્ટ મંજૂર કરો
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
