@@ -1,29 +1,29 @@
 [
   {
     "id": "s1",
-    "name": "Keyur Rao",
-    "email": "Keyur@rse-edit.com",
-    "password": "keyur@123",
-    "role": "admin",
     "baseSalary": 0,
-    "isActive": true
+    "email": "keyur@rse-edit.com",
+    "isActive": true,
+    "name": "Keyur Rao",
+    "password": "keyur@123",
+    "role": "admin"
   },
   {
     "id": "s2",
-    "name": "Nirali Dhorajiya",
-    "email": "nirali@rse-edit.com",
-    "password": "nirali@123",
-    "role": "admin",
     "baseSalary": 0,
-    "isActive": true
+    "email": "nirali@rse-edit.com",
+    "isActive": true,
+    "name": "Nirali Dhorajiya",
+    "password": "nirali@123",
+    "role": "admin"
   },
   {
     "id": "s3",
-    "name": "Jaydeep Tank",
-    "email": "jaydeep@rse-edit.com",
-    "password": "jaydeep@123",
-    "role": "editor",
     "baseSalary": 0,
-    "isActive": true
+    "email": "jaydeep@rse-edit.com",
+    "isActive": true,
+    "name": "Jaydeep Tank",
+    "password": "jaydeep@123",
+    "role": "editor"
   }
 ]

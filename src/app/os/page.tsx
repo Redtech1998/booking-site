@@ -409,14 +409,66 @@ export default function RseOsPage() {
   const [formPhone, setFormPhone] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formRegion, setFormRegion] = useState<"indian" | "foreign">("indian");
-  const [formSlotDate, setFormSlotDate] = useState("2026-11-10");
-  const [formDeliveryDate, setFormDeliveryDate] = useState("2026-11-17");
-  const [formPackage, setFormPackage] = useState("Wedding Highlight");
+  const [formSlotDate, setFormSlotDate] = useState("2026-11-19");
+  const [formDeliveryDate, setFormDeliveryDate] = useState("2026-11-24");
+  const [formPackage, setFormPackage] = useState("Birthday Highlight (બર્થડે હાઇલાઇટ)");
   const [formAssignedTo, setFormAssignedTo] = useState("");
   const [formDeliveryMethod, setFormDeliveryMethod] = useState<"courier" | "online">("online");
   const [formRawLink, setFormRawLink] = useState("");
   const [formNotes, setFormNotes] = useState("");
-  const [formPrice, setFormPrice] = useState(25000);
+  const [formPrice, setFormPrice] = useState(4500);
+  const [formAdvanceAmount, setFormAdvanceAmount] = useState<number>(1000);
+  const [formAdvancePaid, setFormAdvancePaid] = useState<boolean>(true);
+
+  // Helper: Calculate forward delivery date (Slot + 5 days)
+  const calculateDefaultDeliveryDate = (dateStr: string) => {
+    try {
+      const parts = dateStr.split("-");
+      if (parts.length === 3) {
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        d.setDate(d.getDate() + 5);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+    } catch {}
+    return dateStr;
+  };
+
+  // Helper: Open Quick Booking modal with current date & auto-calculated delivery
+  const openNewBookingModal = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    const todayStr = `${y}-${m}-${d}`;
+    const delStr = calculateDefaultDeliveryDate(todayStr);
+
+    setFormCouple("");
+    setFormStudio("");
+    setFormPhone("");
+    setFormEmail("");
+    setFormRegion("indian");
+    setFormSlotDate(todayStr);
+    setFormDeliveryDate(delStr);
+    setFormPackage("Birthday Highlight (બર્થડે હાઇલાઇટ)");
+    setFormPrice(4500);
+    setFormAdvanceAmount(1000);
+    setFormAdvancePaid(true);
+    setFormAssignedTo("");
+    setFormRawLink("");
+    setFormNotes("");
+    setShowNewBookingModal(true);
+  };
+
+  // Helper: Auto-advance delivery date when slot date is selected
+  const handleFormSlotDateChange = (newDate: string) => {
+    setFormSlotDate(newDate);
+    if (newDate) {
+      setFormDeliveryDate(calculateDefaultDeliveryDate(newDate));
+    }
+  };
 
   // New Staff form state
   const [newStaffName, setNewStaffName] = useState("");
@@ -509,20 +561,21 @@ export default function RseOsPage() {
   // Add Booking Submit
   const handleCreateBooking = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formCouple.trim() || !formStudio.trim()) return;
+    if (!formCouple.trim()) return;
 
-    const advance = Math.round(formPrice / 2);
-    const finalAmt = formPrice - advance;
+    const totalAmt = Number(formPrice) || 0;
+    const advance = Number(formAdvanceAmount) || Math.round(totalAmt / 2);
+    const finalAmt = Math.max(0, totalAmt - advance);
 
     addBooking({
       source: "manual",
       region: formRegion,
       customerType: "existing",
-      coupleNames: formCouple,
-      studioOrClient: formStudio,
-      phone: formPhone,
-      email: formEmail,
-      eventDate: "2026-11-01",
+      coupleNames: formCouple.trim(),
+      studioOrClient: formStudio.trim() || "ડાયરેક્ટ ક્લાયન્ટ",
+      phone: formPhone.trim(),
+      email: formEmail.trim(),
+      eventDate: formSlotDate,
       slotDate: formSlotDate,
       deliveryDate: formDeliveryDate,
       serviceId: "manual_custom",
@@ -530,18 +583,18 @@ export default function RseOsPage() {
       editorDays: 3,
       clientDays: 5,
       deliveryMethod: formDeliveryMethod,
-      rawLink: formRawLink || "https://drive.google.com/sample",
-      notes: formNotes,
+      rawLink: formRawLink.trim() || "https://drive.google.com/sample",
+      notes: formNotes.trim(),
       assignedTo: formAssignedTo || undefined,
       pricing: {
-        totalAmount: formPrice,
+        totalAmount: totalAmt,
         advanceAmount: advance,
         finalAmount: finalAmt,
-        advancePaid: true,
+        advancePaid: formAdvancePaid,
         finalPaid: false,
         currency: formRegion === "foreign" ? "USD" : "INR",
       },
-      status: "new_deposit_pending",
+      status: formAdvancePaid ? "awaiting_footage" : "new_deposit_pending",
     });
 
     setFormCouple("");
@@ -913,7 +966,7 @@ export default function RseOsPage() {
             {/* Quick Add Booking Button for Admin */}
             {isAdmin && (
               <button
-                onClick={() => setShowNewBookingModal(true)}
+                onClick={openNewBookingModal}
                 className="px-3.5 py-1.5 rounded-xl bg-[#6B2E4C] text-white text-xs font-bold hover:bg-[#58243E] transition shadow-sm flex items-center space-x-1.5 active:scale-95"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -1528,7 +1581,7 @@ export default function RseOsPage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => setShowNewBookingModal(true)}
+                    onClick={openNewBookingModal}
                     className="px-3.5 py-1.5 rounded-xl bg-[#6B2E4C] text-white text-xs font-bold hover:bg-[#58243E] transition flex items-center space-x-1.5 shadow-sm"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -2848,50 +2901,51 @@ export default function RseOsPage() {
             <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3">
               <h3 className="font-bold text-sm text-[#1C1C1E] flex items-center space-x-1.5">
                 <Plus className="h-4 w-4 text-[#6B2E4C]" />
-                <span>+ નવું બુકિંગ ઉમેરો (Offline / Call Entry)</span>
+                <span>+ નવું સ્લોટ બુકિંગ ઉમેરો (Quick Slot Entry / Call)</span>
               </h3>
               <button
                 onClick={() => setShowNewBookingModal(false)}
-                className="text-[#8E8E93] hover:text-[#1C1C1E] font-bold"
+                className="text-[#8E8E93] hover:text-[#1C1C1E] font-bold p-1 rounded-lg hover:bg-[#F2F2F7] transition"
               >
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleCreateBooking} className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
+              {/* Row 1: Client/Project Name & Studio */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
-                    કપલનું નામ *
+                    ક્લાયન્ટ / પ્રોજેક્ટ / કપલનું નામ *
                   </label>
                   <input
                     type="text"
                     required
                     value={formCouple}
                     onChange={(e) => setFormCouple(e.target.value)}
-                    placeholder="દા.ત. રાહુલ અને પ્રિયા"
-                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs"
+                    placeholder="દા.ત. Birthday Highlight / પ્રિયા & રાહુલ / Event Video"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-semibold text-[#1C1C1E] focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
                   />
                 </div>
                 <div>
                   <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
-                    સ્ટુડિયોનું નામ *
+                    સ્ટુડિયો / ફોટોગ્રાફર નામ
                   </label>
                   <input
                     type="text"
-                    required
                     value={formStudio}
                     onChange={(e) => setFormStudio(e.target.value)}
-                    placeholder="દા.ત. શિવમ ફોટોગ્રાફી"
-                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs"
+                    placeholder="દા.ત. વિષ્ણુ ફોટોગ્રાફી (ડાયરેક્ટ માટે ખાલી રાખો)"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              {/* Row 2: Phone & Region */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
-                    ફોન / WhatsApp *
+                    મોબાઈલ નંબર / WhatsApp *
                   </label>
                   <input
                     type="tel"
@@ -2899,7 +2953,7 @@ export default function RseOsPage() {
                     value={formPhone}
                     onChange={(e) => setFormPhone(e.target.value)}
                     placeholder="+91 98250 11999"
-                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono font-bold text-[#1C1C1E] focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
                   />
                 </div>
                 <div>
@@ -2909,44 +2963,59 @@ export default function RseOsPage() {
                   <select
                     value={formRegion}
                     onChange={(e) => setFormRegion(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
                   >
-                    <option value="indian">🇮🇳 Indian Client</option>
-                    <option value="foreign">🌍 Foreign Client</option>
+                    <option value="indian">🇮🇳 Indian Client (INR ₹)</option>
+                    <option value="foreign">🌍 Foreign Client (USD $)</option>
                   </select>
                 </div>
               </div>
 
-              {/* Package & Editor Assignment */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Row 3: Deliverable / Work Type & Assign Editor */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
-                    પેકેજ (Package Selection) *
+                    કામનો પ્રકાર / પેકેજ (Service & Deliverable) *
                   </label>
                   <select
                     value={formPackage}
                     onChange={(e) => {
                       const pkg = e.target.value;
                       setFormPackage(pkg);
-                      if (pkg.includes("Short Film")) setFormPrice(16500);
+                      if (pkg.includes("Birthday")) setFormPrice(4500);
+                      else if (pkg.includes("Event Highlight")) setFormPrice(5000);
+                      else if (pkg.includes("Pre-Wedding")) setFormPrice(7500);
+                      else if (pkg.includes("Engagement") || pkg.includes("સગાઈ")) setFormPrice(5000);
+                      else if (pkg.includes("Baby Shower") || pkg.includes("શ્રીમંત")) setFormPrice(4500);
+                      else if (pkg.includes("Corporate") || pkg.includes("કોર્પોરેટ")) setFormPrice(10000);
+                      else if (pkg.includes("Wedding Short Film")) setFormPrice(16500);
+                      else if (pkg.includes("Wedding Highlight")) setFormPrice(6500);
                       else if (pkg.includes("Single-Cam")) setFormPrice(1550);
                       else if (pkg.includes("Multi-Cam")) setFormPrice(1850);
-                      else if (pkg.includes("Vertical Reel")) setFormPrice(951);
+                      else if (pkg.includes("Vertical Reel")) setFormPrice(1200);
                       else if (pkg.includes("Insta Cut")) setFormPrice(1851);
                       else if (pkg.includes("Teaser")) setFormPrice(3500);
-                      else if (pkg.includes("Highlight")) setFormPrice(5004);
+                      else setFormPrice(5000);
                     }}
-                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-semibold text-[#1C1C1E] focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
                   >
-                    <option value="Wedding Highlight (૩ થી ૫ મિનિટ)">Wedding Highlight (₹૧,૨૫૧/મિનિટ)</option>
-                    <option value="Wedding Short Film (૩૦ થી ૪૦ મિનિટ)">Wedding Short Film (₹૧૬,૫૦૦ ફિક્સ)</option>
-                    <option value="Traditional Wedding Film (Single-Cam)">Traditional Single-Cam (₹૧,૫૫૦/કલાક)</option>
-                    <option value="Traditional Wedding Film (Multi-Cam)">Traditional Multi-Cam (₹૧,૮૫૦/કલાક)</option>
-                    <option value="Wedding Vertical Reel (9:16)">Wedding Vertical Reel (₹૯૫૧/રીલ)</option>
-                    <option value="Wedding Insta Cut (9:16)">Wedding Insta Cut (₹૧,૮૫૧/કટ)</option>
-                    <option value="Wedding Teaser / Trailer (૬૦ થી ૯૦ સેકન્ડ)">Wedding Teaser (₹૩,૫૦૦ - ₹૫,૦૦૦)</option>
-                    <option value="Education / Other">Education / Other (Custom Quote)</option>
-                    <option value="Foreign Client (Custom Quote)">Foreign Client (Custom Quote)</option>
+                    <optgroup label="🎉 ઇવેન્ટ્સ અને સ્પેશિયલ વિડીયો (Events & Highlights)">
+                      <option value="Birthday Highlight (બર્થડે હાઇલાઇટ)">🎂 Birthday Highlight (બર્થડે હાઇલાઇટ)</option>
+                      <option value="Event Highlight (કોઈપણ ઇવેન્ટ હાઇલાઇટ)">🎊 Event Highlight (કોઈપણ ઇવેન્ટ હાઇલાઇટ)</option>
+                      <option value="Pre-Wedding Film (પ્રી-વેડિંગ ફિલ્મ)">💍 Pre-Wedding Film (પ્રી-વેડિંગ ફિલ્મ)</option>
+                      <option value="Engagement / Ring Ceremony (સગાઈ સેરેમની)">✨ Engagement / Ring Ceremony (સગાઈ સેરેમની)</option>
+                      <option value="Baby Shower / Shrimant (શ્રીમંત / બેબી શાવર)">🍼 Baby Shower / Shrimant (શ્રીમંત / બેબી શાવર)</option>
+                      <option value="Corporate Event / Commercial (કોર્પોરેટ ઇવેન્ટ)">🏢 Corporate Event / Commercial (કોર્પોરેટ ઇવેન્ટ)</option>
+                    </optgroup>
+                    <optgroup label="🎬 વેડિંગ ફિલ્મ્સ (Wedding Films)">
+                      <option value="Wedding Highlight (૩ થી ૫ મિનિટ)">🎬 Wedding Highlight (૩ થી ૫ મિનિટ)</option>
+                      <option value="Wedding Short Film (૩૦ થી ૪૦ મિનિટ)">🎞️ Wedding Short Film (૩૦ થી ૪૦ મિનિટ)</option>
+                      <option value="Traditional Wedding Film (Single-Cam)">🎥 Traditional Film (Single-Cam)</option>
+                      <option value="Traditional Wedding Film (Multi-Cam)">🎥 Traditional Film (Multi-Cam)</option>
+                      <option value="Wedding Teaser / Trailer (૬૦ થી ૯૦ સેકન્ડ)">⏱️ Wedding Teaser / Trailer (૬૦-૯૦ સેકન્ડ)</option>
+                      <option value="Vertical Reel / Insta Cut (9:16)">📱 Vertical Reel / Insta Cut (9:16)</option>
+                      <option value="Other / Custom Project (અન્ય પ્રોજેક્ટ)">💡 Custom / Other Project (કસ્ટમ પ્રોજેક્ટ)</option>
+                    </optgroup>
                   </select>
                 </div>
                 <div>
@@ -2956,7 +3025,7 @@ export default function RseOsPage() {
                   <select
                     value={formAssignedTo}
                     onChange={(e) => setFormAssignedTo(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
                   >
                     <option value="">-- પછીથી સોંપો (Unassigned) --</option>
                     {staff
@@ -2970,7 +3039,8 @@ export default function RseOsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              {/* Row 4: Dates & Pricing */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
                   <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
                     સ્લોટ તારીખ *
@@ -2979,91 +3049,120 @@ export default function RseOsPage() {
                     type="date"
                     required
                     value={formSlotDate}
-                    onChange={(e) => setFormSlotDate(e.target.value)}
-                    className="w-full px-2 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono"
+                    onChange={(e) => handleFormSlotDateChange(e.target.value)}
+                    className="w-full px-2 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono font-bold text-[#1C1C1E] focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
                   />
                 </div>
                 <div>
-                  <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
-                    ડિલિવરી તારીખ *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-2xs font-bold text-[#8E8E93] uppercase">
+                      ડિલિવરી તારીખ *
+                    </label>
+                    <span className="text-3xs text-[#6B2E4C] font-semibold">(+૫ દિવસ)</span>
+                  </div>
                   <input
                     type="date"
                     required
+                    min={formSlotDate}
                     value={formDeliveryDate}
                     onChange={(e) => setFormDeliveryDate(e.target.value)}
-                    className="w-full px-2 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono font-bold text-[#6B2E4C]"
+                    className="w-full px-2 py-2 rounded-xl border border-[#6B2E4C]/30 bg-[#6B2E4C]/5 text-xs font-mono font-bold text-[#6B2E4C] focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
                   />
                 </div>
                 <div>
                   <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
-                    કુલ ભાવ (INR)
+                    કુલ રકમ (Total INR) *
                   </label>
                   <input
                     type="number"
+                    required
                     value={formPrice}
                     onChange={(e) => setFormPrice(Number(e.target.value))}
-                    className="w-full px-2 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono font-bold"
+                    className="w-full px-2 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono font-bold text-[#1C1C1E] focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
+                    જમા એડવાન્સ (INR)
+                  </label>
+                  <input
+                    type="number"
+                    value={formAdvanceAmount}
+                    onChange={(e) => setFormAdvanceAmount(Number(e.target.value))}
+                    className="w-full px-2 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono font-bold text-emerald-700 focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
                   />
                 </div>
               </div>
 
-              {/* Delivery method & RAW Link */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
-                    ફૂટેજ મોકલવાની રીત
+              {/* Row 5: Advance Paid Checkbox & Delivery Method */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-center bg-[#F9F9FB] p-2.5 rounded-2xl border border-[#E5E5EA]">
+                <label className="flex items-center space-x-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formAdvancePaid}
+                    onChange={(e) => setFormAdvancePaid(e.target.checked)}
+                    className="rounded text-[#6B2E4C] focus:ring-[#6B2E4C] h-4 w-4"
+                  />
+                  <span className="text-xs font-bold text-[#1C1C1E]">
+                    ✓ એડવાન્સ રકમ જમા થઈ ગઈ છે (Advance Paid)
+                  </span>
+                </label>
+                <div className="flex items-center space-x-2">
+                  <label className="text-2xs font-bold text-[#8E8E93] uppercase whitespace-nowrap">
+                    ફૂટેજ:
                   </label>
                   <select
                     value={formDeliveryMethod}
                     onChange={(e) => setFormDeliveryMethod(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs"
+                    className="w-full px-2 py-1.5 rounded-xl border border-[#D1D1D6] bg-white text-xs focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
                   >
                     <option value="online">☁️ Google Drive / WeTransfer</option>
                     <option value="courier">🚚 HDD Courier Delivery</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Row 6: Raw Link & Notes */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
-                    રૉ ફૂટેજ લિંક (Drive URL)
+                    રૉ ફૂટેજ લિંક (Drive URL - વૈકલ્પિક)
                   </label>
                   <input
                     type="url"
                     value={formRawLink}
                     onChange={(e) => setFormRawLink(e.target.value)}
                     placeholder="https://drive.google.com/..."
-                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono"
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
                   />
                 </div>
-              </div>
-
-              {/* Special notes */}
-              <div>
-                <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
-                  વિશેષ નોંધ / ગીત પસંદગી / LUT સ્ટાઇલ (Notes)
-                </label>
-                <textarea
-                  rows={2}
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  placeholder="દા.ત. કેમેરા Sony FX3 S-Log3, વ્હોટ્સએપ ગ્રુપમાં અપડેટ આપવું..."
-                  className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs"
-                />
+                <div>
+                  <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
+                    વિશેષ નોંધ / ગીત પસંદગી (Notes - વૈકલ્પિક)
+                  </label>
+                  <input
+                    type="text"
+                    value={formNotes}
+                    onChange={(e) => setFormNotes(e.target.value)}
+                    placeholder="દા.ત. કેમેરા Sony FX3, ઇવેન્ટ સમય, વગેરે..."
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end space-x-2 pt-2 border-t border-[#E5E5EA]">
                 <button
                   type="button"
                   onClick={() => setShowNewBookingModal(false)}
-                  className="px-3 py-1.5 rounded-xl border border-[#D1D1D6] text-xs"
+                  className="px-4 py-2 rounded-xl border border-[#D1D1D6] text-xs font-medium text-[#1C1C1E] hover:bg-[#F2F2F7] transition"
                 >
                   રદ્દ કરો
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-xl bg-[#6B2E4C] text-white font-bold text-xs hover:bg-[#58243E]"
+                  className="px-5 py-2 rounded-xl bg-[#6B2E4C] text-white font-bold text-xs hover:bg-[#58243E] transition shadow-md active:scale-95 flex items-center space-x-1.5"
                 >
-                  બુકિંગ સેવ કરો
+                  <span>✓ સ્લોટ બુકિંગ સેવ કરો</span>
                 </button>
               </div>
             </form>
