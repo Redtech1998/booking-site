@@ -41,7 +41,8 @@ export function middleware(req: NextRequest) {
     if (
       pathname.startsWith("/api/staff") ||
       pathname.startsWith("/api/invoices") ||
-      pathname.startsWith("/api/clients")
+      pathname.startsWith("/api/clients") ||
+      pathname.startsWith("/api/attendance")
     ) {
       return new NextResponse(
         JSON.stringify({ error: "Access denied. Internal studio endpoint." }),

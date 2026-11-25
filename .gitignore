@@ -43,3 +43,9 @@ next-env.d.ts
 _public_html.zip
 extracted_booking_site/
 
+# Electron Desktop DMG Releases & Build Artifacts
+/dist/
+/releases/
+src/data/attendance-live.json
+
+

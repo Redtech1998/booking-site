@@ -1,12 +1,16 @@
 {
   "name": "rse-booking",
   "version": "1.0.0",
+  "description": "RSE Post Production House - Studio OS & Booking System",
+  "author": "RSE Post Production House",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev --port 3100",
     "build": "next build",
     "start": "next start --port 3100",
     "desktop": "electron electron/main.js",
+    "dist:mac": "electron-builder --mac --config electron-builder.yml",
     "lint": "next lint"
   },
   "dependencies": {
@@ -26,6 +30,7 @@
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.20",
     "electron": "^45.2.1",
+    "electron-builder": "^26.18.0",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3"

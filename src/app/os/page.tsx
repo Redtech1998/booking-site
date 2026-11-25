@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
 import { convertIndicDigitsToAscii } from "@/lib/phone";
@@ -500,6 +500,56 @@ export default function RseOsPage() {
   } | null>(null);
   const [isSavingDb, setIsSavingDb] = useState(false);
   const [dbMessage, setDbMessage] = useState<string | null>(null);
+  const [showIosInstallPrompt, setShowIosInstallPrompt] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Register Service Worker, iOS Install Banner & Desktop Keyboard Shortcuts (Cmd+N, Cmd+K)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+
+    const ua = window.navigator.userAgent || "";
+    const isIos = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true;
+    if (isIos && !isStandalone && !localStorage.getItem("rse_ios_banner_dismissed")) {
+      setShowIosInstallPrompt(true);
+    }
+
+    const handleOsAction = (evt: Event) => {
+      const action = (evt as CustomEvent).detail;
+      if (action === "new-booking" && currentUser?.role === "admin") {
+        openNewBookingModal();
+      } else if (action === "focus-search") {
+        setAdminTab("kanban");
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setAdminTab("kanban");
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
+        if (currentUser?.role === "admin") {
+          e.preventDefault();
+          openNewBookingModal();
+        }
+      }
+    };
+
+    window.addEventListener("rse-os-action", handleOsAction);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("rse-os-action", handleOsAction);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [currentUser]);
 
   // Quick Login
   const handleQuickFill = (email: string, pass: string) => {
@@ -1030,7 +1080,30 @@ export default function RseOsPage() {
           ADMIN MASTER SUITE (Keyur Rao / Nirali Dhorajiya)
       ───────────────────────────────────────────────────────────── */}
       {isAdmin ? (
-        <div className="flex-1 flex flex-col max-w-7xl w-full mx-auto p-3 sm:p-6 space-y-4">
+        <div className="flex-1 flex flex-col max-w-7xl w-full mx-auto p-3 sm:p-6 pb-24 md:pb-6 space-y-4">
+          {/* Mobile Safari Standalone App Install Banner */}
+          {showIosInstallPrompt && (
+            <div className="md:hidden bg-[#6B2E4C] text-white p-3 rounded-2xl shadow-md flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center space-x-2.5">
+                <Smartphone className="h-5 w-5 shrink-0 text-amber-200" />
+                <div>
+                  <p className="font-bold">અસલી iPhone એપ તરીકે ઇન્સ્ટોલ કરો</p>
+                  <p className="text-2xs text-white/85">
+                    નીચે <strong>Share (⎋)</strong> દબાવી <strong>&quot;Add to Home Screen&quot;</strong> પસંદ કરો
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowIosInstallPrompt(false);
+                  localStorage.setItem("rse_ios_banner_dismissed", "1");
+                }}
+                className="px-2 py-1 rounded-lg bg-white/15 text-2xs font-bold shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {/* ── Production Health & KPI Banner ── */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <div className="bg-white p-3.5 rounded-2xl border border-[#E5E5EA] shadow-xs flex items-center justify-between">
@@ -1185,8 +1258,9 @@ export default function RseOsPage() {
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#8E8E93]" />
                   <input
+                    ref={searchInputRef}
                     type="text"
-                    placeholder="કપલ, સ્ટુડિયો, કોડ શોધો..."
+                    placeholder="કપલ, સ્ટુડિયો, કોડ શોધો... (Cmd+K)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[#D1D1D6] bg-white text-xs focus:outline-none focus:ring-1 focus:ring-[#6B2E4C]"
@@ -2551,6 +2625,53 @@ export default function RseOsPage() {
               </div>
             </div>
           )}
+
+          {/* ── iPhone / Mobile Native Bottom Navigation Bar ── */}
+          <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-lg border-t border-[#E5E5EA] px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-2xl">
+            <button
+              onClick={() => setAdminTab("kanban")}
+              className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
+                adminTab === "kanban" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
+              }`}
+            >
+              <Kanban className="h-5 w-5 mb-0.5" />
+              <span>કાનબાન</span>
+            </button>
+            <button
+              onClick={() => setAdminTab("calendar")}
+              className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
+                adminTab === "calendar" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
+              }`}
+            >
+              <Calendar className="h-5 w-5 mb-0.5" />
+              <span>બુકિંગ્સ</span>
+            </button>
+            <button
+              onClick={openNewBookingModal}
+              className="flex items-center justify-center h-11 w-11 -mt-5 rounded-full bg-[#6B2E4C] text-white shadow-lg border-2 border-white active:scale-95 transition"
+              title="+ નવું બુકિંગ ઉમેરો"
+            >
+              <Plus className="h-6 w-6" />
+            </button>
+            <button
+              onClick={() => setAdminTab("invoices")}
+              className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
+                adminTab === "invoices" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
+              }`}
+            >
+              <FileText className="h-5 w-5 mb-0.5" />
+              <span>ઇન્વોઇસ</span>
+            </button>
+            <button
+              onClick={() => setAdminTab("staff")}
+              className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
+                adminTab === "staff" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
+              }`}
+            >
+              <Users className="h-5 w-5 mb-0.5" />
+              <span>ટીમ</span>
+            </button>
+          </nav>
         </div>
       ) : (
         /* ─────────────────────────────────────────────────────────────
