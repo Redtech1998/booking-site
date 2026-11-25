@@ -76,6 +76,7 @@ function setupMenu(win) {
       : []),
     {
       label: "Edit",
+      role: "editMenu",
       submenu: [
         { role: "undo" },
         { role: "redo" },
@@ -83,6 +84,8 @@ function setupMenu(win) {
         { role: "cut" },
         { role: "copy" },
         { role: "paste" },
+        { role: "pasteAndMatchStyle" },
+        { role: "delete" },
         { role: "selectAll" },
       ],
     },
@@ -238,6 +241,33 @@ async function createWindow() {
       activeUrl = await resolveTargetUrl();
       if (!win.isDestroyed()) win.loadURL(activeUrl);
     }, 1500);
+  });
+
+  // Native Right-Click Context Menu (Cut, Copy, Paste, Select All)
+  win.webContents.on("context-menu", (_event, params) => {
+    const ctxTemplate = [];
+    if (params.isEditable) {
+      ctxTemplate.push(
+        { role: "undo", label: "Undo" },
+        { role: "redo", label: "Redo" },
+        { type: "separator" },
+        { role: "cut", label: "Cut" },
+        { role: "copy", label: "Copy" },
+        { role: "paste", label: "Paste" },
+        { role: "pasteAndMatchStyle", label: "Paste and Match Style" },
+        { type: "separator" },
+        { role: "selectAll", label: "Select All" }
+      );
+    } else if (params.selectionText && params.selectionText.trim().length > 0) {
+      ctxTemplate.push(
+        { role: "copy", label: "Copy" },
+        { type: "separator" },
+        { role: "selectAll", label: "Select All" }
+      );
+    } else {
+      ctxTemplate.push({ role: "selectAll", label: "Select All" });
+    }
+    Menu.buildFromTemplate(ctxTemplate).popup({ window: win });
   });
 
   // Open external links (Drive, WhatsApp, Frame.io) in default system browser

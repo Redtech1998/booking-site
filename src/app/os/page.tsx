@@ -1454,7 +1454,7 @@ export default function RseOsPage() {
               )}
 
               {/* 8-Stage Horizontal Scrollable Kanban Columns with Native HTML5 Drag & Drop */}
-              <div className="flex space-x-3.5 overflow-x-auto pb-4 select-none">
+              <div className="flex space-x-3.5 overflow-x-auto pb-4 select-text">
                 {STAGES.map((stage) => {
                   // Strictly sort cards in each column chronologically by slotDate ascending
                   const stageItems = filteredBookings
