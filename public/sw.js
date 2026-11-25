@@ -1,11 +1,11 @@
-const CACHE_NAME = "rse-os-v1";
-const SHELL_ASSETS = ["/os", "/manifest-os.json", "/rse-logo.png", "/icon.png"];
+const CACHE_NAME = "rse-os-v2";
+const STATIC_ASSETS = ["/manifest-os.json", "/rse-logo.png", "/icon.png"];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(SHELL_ASSETS).catch(() => {});
+      return cache.addAll(STATIC_ASSETS).catch(() => {});
     })
   );
 });
@@ -19,14 +19,13 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Network-first strategy for live API & OS data, falling back to cache when offline
+// Always fetch HTML pages (/os) & APIs fresh from network so Next.js chunks never go stale
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  // Never cache live API JSON responses in static cache
-  if (url.pathname.startsWith("/api/")) {
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/os") || url.pathname.startsWith("/_next/")) {
     return;
   }
 

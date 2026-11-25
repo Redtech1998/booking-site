@@ -209,6 +209,14 @@ async function createWindow() {
     `)}`
   );
 
+  // Clear any stale Service Worker / HTTP cache so Next.js chunks always hydrate cleanly
+  try {
+    await win.webContents.session.clearCache();
+    await win.webContents.session.clearStorageData({
+      storages: ["serviceworkers", "cachestorage"],
+    });
+  } catch (_) {}
+
   let activeUrl = await resolveTargetUrl();
   win.loadURL(activeUrl);
   win.show();

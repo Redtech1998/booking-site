@@ -577,7 +577,12 @@ export default function RseOsPage() {
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-    const res = login(loginEmail, loginPassword);
+    const cleanEmail = loginEmail.trim();
+    if (!cleanEmail || !loginPassword) {
+      setLoginError("⚠️ કૃપા કરીને ઈમેઈલ અને પાસવર્ડ બંને દાખલ કરો.");
+      return;
+    }
+    const res = login(cleanEmail, loginPassword);
     if (!res.success) {
       setLoginError(res.error || "ખોટો ઈમેઈલ અથવા પાસવર્ડ.");
     } else {
@@ -917,7 +922,7 @@ export default function RseOsPage() {
               </div>
             )}
 
-            <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleLoginSubmit} noValidate className="space-y-4 text-xs">
               <div>
                 <label className="block text-[#3A3A3C] font-semibold mb-1 text-2xs uppercase tracking-wider">
                   ઈમેઈલ એડ્રેસ (Email)
@@ -926,11 +931,14 @@ export default function RseOsPage() {
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-[#8E8E93]" />
                   <input
                     type="email"
-                    required
                     autoFocus
+                    autoComplete="email"
                     value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="name@rse.studio"
+                    onChange={(e) => {
+                      setLoginEmail(e.target.value);
+                      if (loginError) setLoginError(null);
+                    }}
+                    placeholder="Keyur@rse-edit.com"
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-[#D1D1D6] bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#6B2E4C]/20 focus:border-[#6B2E4C] transition"
                   />
                 </div>
@@ -944,9 +952,12 @@ export default function RseOsPage() {
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-[#8E8E93]" />
                   <input
                     type={showPassword ? "text" : "password"}
-                    required
+                    autoComplete="current-password"
                     value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
+                    onChange={(e) => {
+                      setLoginPassword(e.target.value);
+                      if (loginError) setLoginError(null);
+                    }}
                     placeholder="••••••••"
                     className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-[#D1D1D6] bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#6B2E4C]/20 focus:border-[#6B2E4C] transition"
                   />
@@ -962,7 +973,7 @@ export default function RseOsPage() {
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-2xl bg-[#6B2E4C] text-white font-bold text-xs hover:bg-[#58243E] active:scale-[0.98] transition shadow-md flex items-center justify-center space-x-2"
+                className="w-full py-3 rounded-2xl bg-[#6B2E4C] text-white font-bold text-xs hover:bg-[#58243E] active:scale-[0.98] transition shadow-md flex items-center justify-center space-x-2 cursor-pointer"
               >
                 <span>લોગિન કરો (Sign In)</span>
                 <ArrowRight className="h-4 w-4" />
