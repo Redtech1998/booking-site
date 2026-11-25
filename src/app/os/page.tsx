@@ -927,6 +927,7 @@ export default function RseOsPage() {
                   <input
                     type="email"
                     required
+                    autoFocus
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     placeholder="name@rse.studio"

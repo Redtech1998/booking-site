@@ -3,9 +3,6 @@ const http = require("http");
 const https = require("https");
 const path = require("path");
 
-// Disable GPU compositing to prevent mailbox overlay errors on macOS Apple Silicon
-app.commandLine.appendSwitch("disable-gpu-compositing");
-
 const LOCAL_URL = "http://localhost:3100/os";
 const LAN_URL = "http://RSEs-MacBook-Air.local:3100/os";
 const CLOUD_URL = "https://book.rsegnr.in/os?pass=rse2026";
@@ -74,21 +71,7 @@ function setupMenu(win) {
           },
         ]
       : []),
-    {
-      label: "Edit",
-      role: "editMenu",
-      submenu: [
-        { role: "undo" },
-        { role: "redo" },
-        { type: "separator" },
-        { role: "cut" },
-        { role: "copy" },
-        { role: "paste" },
-        { role: "pasteAndMatchStyle" },
-        { role: "delete" },
-        { role: "selectAll" },
-      ],
-    },
+    { role: "editMenu" },
     {
       label: "View",
       submenu: [
@@ -230,10 +213,22 @@ async function createWindow() {
   win.loadURL(activeUrl);
   win.show();
   win.focus();
-
-  if (process.platform === "darwin" && app.dock) {
-    app.dock.show();
+  if (process.platform === "darwin") {
+    app.focus({ steal: true });
+    if (app.dock) app.dock.show();
   }
+
+  win.webContents.on("did-finish-load", () => {
+    if (!win.isDestroyed()) {
+      win.focus();
+      win.webContents.focus();
+    }
+  });
+
+  win.webContents.on("console-message", (event) => {
+    const msg = event?.message || "";
+    if (msg) console.log(`[Renderer] ${msg}`);
+  });
 
   // Auto-recovery if connection momentarily drops
   win.webContents.on("did-fail-load", () => {
