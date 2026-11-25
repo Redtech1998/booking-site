@@ -1,4 +1,5 @@
 import { StaffMember, Booking, AttendanceRecord, Client, LeaveRequest } from "@/types";
+import { FULL_ADMIN_PERMISSIONS, EDITOR_DEFAULT_PERMISSIONS } from "@/lib/permissions";
 
 // ─── Official Studio Staff ───────────────────────────────────────
 
@@ -11,6 +12,8 @@ export const STAFF: StaffMember[] = [
     role: "admin",
     baseSalary: 0,
     isActive: true,
+    isSuperAdmin: true,
+    permissions: { ...FULL_ADMIN_PERMISSIONS },
   },
   {
     id: "s2",
@@ -20,6 +23,7 @@ export const STAFF: StaffMember[] = [
     role: "admin",
     baseSalary: 0,
     isActive: true,
+    permissions: { ...FULL_ADMIN_PERMISSIONS },
   },
   {
     id: "s3",
@@ -29,6 +33,7 @@ export const STAFF: StaffMember[] = [
     role: "editor",
     baseSalary: 0,
     isActive: true,
+    permissions: { ...EDITOR_DEFAULT_PERMISSIONS },
   },
 ];
 

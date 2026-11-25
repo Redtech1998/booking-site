@@ -7,6 +7,7 @@ import {
   isMongoConfigured,
   fetchStaffFromMongo,
   saveStaffMemberToMongo,
+  deleteStaffMemberFromMongo,
   syncAllStaffToMongo,
 } from "@/lib/mongodb";
 
@@ -44,7 +45,7 @@ function saveStaff(staffList: StaffMember[]) {
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
   "Cache-Control": "no-store, no-cache, must-revalidate",
 };
@@ -131,6 +132,39 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message || "Failed to save staff member" },
+      { status: 500, headers: CORS_HEADERS }
+    );
+  }
+}
+
+// DELETE /api/staff?id=xxx -> delete staff member from MongoDB Atlas and local cache
+export async function DELETE(req: NextRequest) {
+  try {
+    const id = req.nextUrl.searchParams.get("id");
+    if (!id || id === "s1") {
+      return NextResponse.json(
+        { error: "Cannot delete Super Admin or missing staff id." },
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    let deletedFromMongo = false;
+    if (isMongoConfigured()) {
+      try {
+        deletedFromMongo = await deleteStaffMemberFromMongo(id);
+      } catch (_) {}
+    }
+
+    const current = loadStoredStaff().filter((s) => s.id !== id);
+    saveStaff(current);
+
+    return NextResponse.json(
+      { success: true, id, deletedFromMongo },
+      { status: 200, headers: CORS_HEADERS }
+    );
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err?.message || "Failed to delete staff member" },
       { status: 500, headers: CORS_HEADERS }
     );
   }

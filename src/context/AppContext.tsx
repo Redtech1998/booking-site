@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import {
   Booking,
   Client,
@@ -28,6 +28,7 @@ import { generateBookingCode } from "@/lib/bookingCode";
 
 interface AppState {
   // Auth
+  hydrated: boolean;
   currentUser: StaffMember | null;
   login: (email: string, password: string) => { success: boolean; error?: string };
   logout: () => void;
@@ -108,9 +109,13 @@ interface AppState {
 const Ctx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  // Authentication & Staff (Default to Studio Admin Harsh Patel for instant workstation access)
-  const [currentUser, setCurrentUser] = useState<StaffMember | null>(SEED_STAFF[0]);
+  // Authentication & Staff (Strict Login Required - No Auto-Login as Admin)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [staff, setStaff] = useState<StaffMember[]>(SEED_STAFF);
+  const currentUser = useMemo(
+    () => staff.find((s) => s.id === currentUserId && s.isActive) || null,
+    [staff, currentUserId]
+  );
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(SEED_ATTENDANCE);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(SEED_LEAVES);
 
@@ -127,18 +132,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Hydrate from localStorage once on mount, then sync with server API
   useEffect(() => {
     try {
-      const u = localStorage.getItem("rse_user");
-      if (u) {
-        const parsed = JSON.parse(u);
-        if (parsed?.email?.includes("@rse-edit.com")) {
-          setCurrentUser(parsed);
-        } else {
-          setCurrentUser(SEED_STAFF[0]);
-          localStorage.setItem("rse_user", JSON.stringify(SEED_STAFF[0]));
-        }
+      const uid = localStorage.getItem("rse_user_id");
+      if (uid) {
+        setCurrentUserId(uid);
       } else {
-        setCurrentUser(SEED_STAFF[0]);
+        setCurrentUserId(null);
       }
+      // Clean legacy auto-login cache key so devices enforce proper login
+      localStorage.removeItem("rse_user");
 
       const st = localStorage.getItem("rse_staff_v2");
       if (st) {
@@ -273,8 +274,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      if (currentUser) localStorage.setItem("rse_user", JSON.stringify(currentUser));
-      else localStorage.removeItem("rse_user");
+      if (currentUserId) localStorage.setItem("rse_user_id", currentUserId);
+      else localStorage.removeItem("rse_user_id");
 
       localStorage.setItem("rse_staff_v2", JSON.stringify(staff));
       localStorage.setItem("rse_attendance_v2", JSON.stringify(attendance));
@@ -285,28 +286,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("rse_services_v2", JSON.stringify(services));
       localStorage.setItem("rse_holidays_v2", JSON.stringify(holidays));
     } catch (_) {}
-  }, [currentUser, staff, attendance, leaveRequests, bookings, clients, invoices, services, holidays, hydrated]);
+  }, [currentUserId, staff, attendance, leaveRequests, bookings, clients, invoices, services, holidays, hydrated]);
 
   // Auth Functions
   const login = useCallback(
     (email: string, pass: string): { success: boolean; error?: string } => {
+      const cleanEmail = email.trim().toLowerCase();
       const found = staff.find(
-        (s) => s.email.toLowerCase() === email.toLowerCase() && s.password === pass
+        (s) => s.email.trim().toLowerCase() === cleanEmail && s.password === pass
       );
       if (found) {
         if (!found.isActive) {
-          return { success: false, error: "Account deactivated. Contact Admin." };
+          return { success: false, error: "તમારું ખાતું બંધ (Deactivated) કરેલ છે. એડમિનનો સંપર્ક કરો." };
         }
-        setCurrentUser(found);
+        setCurrentUserId(found.id);
         return { success: true };
       }
-      return { success: false, error: "Invalid email or password." };
+      return { success: false, error: "ઈમેઈલ અથવા પાસવર્ડ ખોટો છે." };
     },
     [staff]
   );
 
   const logout = useCallback(() => {
-    setCurrentUser(null);
+    setCurrentUserId(null);
   }, []);
 
   // Staff Management
@@ -339,11 +341,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       return updated;
     });
-    setCurrentUser((prev) => (prev && prev.id === id ? { ...prev, ...updates } : prev));
   }, []);
 
   const deleteStaff = useCallback((id: string) => {
+    if (id === "s1") return;
     setStaff((prev) => prev.filter((s) => s.id !== id));
+    if (typeof window !== "undefined") {
+      fetch(`/api/staff?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }).catch(() => {});
+    }
   }, []);
 
   // Attendance
@@ -958,6 +965,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider
       value={{
+        hydrated,
         currentUser,
         login,
         logout,

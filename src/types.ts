@@ -2,6 +2,18 @@
 
 export type Role = "admin" | "editor" | "accountant" | "outreach" | "social";
 
+export interface StaffPermissions {
+  canViewAllBookings: boolean;
+  canCreateBooking: boolean;
+  canEditBooking: boolean;
+  canDeleteBooking: boolean;
+  canViewPricingAndInvoices: boolean;
+  canViewClientContacts: boolean;
+  canViewClientsDirectory: boolean;
+  canManageStaffAndSalary: boolean;
+  canManageSettings: boolean;
+}
+
 export interface StaffMember {
   id: string;
   name: string;
@@ -12,6 +24,8 @@ export interface StaffMember {
   phone?: string;
   avatar?: string;
   isActive: boolean;
+  isSuperAdmin?: boolean;
+  permissions?: StaffPermissions;
   joinedDate?: string;
 }
 

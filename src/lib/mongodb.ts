@@ -207,6 +207,19 @@ export async function saveStaffMemberToMongo(member: StaffMember): Promise<boole
   }
 }
 
+export async function deleteStaffMemberFromMongo(id: string): Promise<boolean> {
+  try {
+    const db = await getMongoDb();
+    if (!db) return false;
+    const collection = db.collection("staff");
+    await collection.deleteOne({ id });
+    return true;
+  } catch (err) {
+    console.warn("Error deleting staff member from MongoDB:", err);
+    return false;
+  }
+}
+
 export async function syncAllStaffToMongo(staffList: StaffMember[]): Promise<boolean> {
   try {
     const db = await getMongoDb();

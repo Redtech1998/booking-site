@@ -7,9 +7,16 @@ import { convertIndicDigitsToAscii } from "@/lib/phone";
 import { calculateRsePrice, parseDuration } from "@/lib/pricingCalculator";
 import { INDIAN_SERVICES } from "@/data/servicesData";
 import {
+  getEffectivePermissions,
+  getRoleDefaultPermissions,
+  isSuperAdminUser,
+  PERMISSION_LABELS,
+} from "@/lib/permissions";
+import {
   Booking,
   BookingStatus,
   StaffMember,
+  StaffPermissions,
   Client,
   LeaveRequest,
   Role,
@@ -141,6 +148,7 @@ const STAGES: {
 
 export default function RseOsPage() {
   const {
+    hydrated,
     currentUser,
     login,
     logout,
@@ -181,15 +189,25 @@ export default function RseOsPage() {
     lastSyncedAt,
   } = useApp();
 
-  // Defense-in-depth: Strictly block OS on public website domain (book.rsegnr.in)
-  // OS is reserved for the internal Studio Electron desktop app on localhost
+  // Defense-in-depth: Allow localhost, studio Wi-Fi LAN (.local / private IPs), or authorized remote passkey/cookie
   const [isBlockedDomain, setIsBlockedDomain] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const hostname = window.location.hostname;
-      const isPublic = !hostname.includes("localhost") && !hostname.includes("127.0.0.1");
-      if (isPublic) {
+      const isLocalNet =
+        hostname.includes("localhost") ||
+        hostname.includes("127.0.0.1") ||
+        hostname.includes(".local") ||
+        hostname.startsWith("192.168.") ||
+        hostname.startsWith("10.") ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+
+      const hasCookieAuth = document.cookie.includes("rse_os_token=rse_studio_keyur");
+      const search = window.location.search || "";
+      const hasQueryPass = search.includes("pass=rse2026") || search.includes("pin=8866");
+
+      if (!isLocalNet && !hasCookieAuth && !hasQueryPass) {
         setIsBlockedDomain(true);
         window.location.replace("/");
       }
@@ -281,7 +299,7 @@ export default function RseOsPage() {
   // Admin Navigation Tabs:
   // "kanban" (Work Pipeline) | "calendar" (All Bookings & Slots) | "invoices" (Billing Archive) | "staff" (Editors) | "settings" (Backup & Pricing)
   const [adminTab, setAdminTab] = useState<
-    "kanban" | "calendar" | "invoices" | "staff" | "settings" | "leaves" | "clients"
+    "kanban" | "calendar" | "invoices" | "staff" | "settings" | "leaves" | "clients" | "my_desk"
   >("kanban");
 
   // Invoices & Billing Archive State
@@ -470,13 +488,17 @@ export default function RseOsPage() {
     }
   };
 
-  // New Staff form state
+  // New Staff & Permission Editor state
   const [newStaffName, setNewStaffName] = useState("");
   const [newStaffEmail, setNewStaffEmail] = useState("");
   const [newStaffPassword, setNewStaffPassword] = useState("");
   const [newStaffRole, setNewStaffRole] = useState<Role>("editor");
   const [newStaffSalary, setNewStaffSalary] = useState(45000);
   const [newStaffPhone, setNewStaffPhone] = useState("");
+  const [newStaffPermissions, setNewStaffPermissions] = useState<StaffPermissions>(() =>
+    getRoleDefaultPermissions("editor")
+  );
+  const [editingStaffMember, setEditingStaffMember] = useState<StaffMember | null>(null);
 
   // New Leave form state
   const [leaveStartDate, setLeaveStartDate] = useState("2026-11-16");
@@ -522,7 +544,8 @@ export default function RseOsPage() {
 
     const handleOsAction = (evt: Event) => {
       const action = (evt as CustomEvent).detail;
-      if (action === "new-booking" && currentUser?.role === "admin") {
+      const curPerms = getEffectivePermissions(currentUser);
+      if (action === "new-booking" && curPerms.canCreateBooking) {
         openNewBookingModal();
       } else if (action === "focus-search") {
         setAdminTab("kanban");
@@ -536,7 +559,7 @@ export default function RseOsPage() {
         setAdminTab("kanban");
         setTimeout(() => searchInputRef.current?.focus(), 50);
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
-        if (currentUser?.role === "admin") {
+        if (getEffectivePermissions(currentUser).canCreateBooking) {
           e.preventDefault();
           openNewBookingModal();
         }
@@ -551,20 +574,14 @@ export default function RseOsPage() {
     };
   }, [currentUser]);
 
-  // Quick Login
-  const handleQuickFill = (email: string, pass: string) => {
-    setLoginEmail(email);
-    setLoginPassword(pass);
-    setLoginError(null);
-    login(email, pass);
-  };
-
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
     const res = login(loginEmail, loginPassword);
     if (!res.success) {
       setLoginError(res.error || "ખોટો ઈમેઈલ અથવા પાસવર્ડ.");
+    } else {
+      setLoginPassword("");
     }
   };
 
@@ -581,13 +598,35 @@ export default function RseOsPage() {
       baseSalary: Number(newStaffSalary) || 30000,
       phone: newStaffPhone.trim() || undefined,
       isActive: true,
+      permissions: { ...newStaffPermissions },
     });
 
     setNewStaffName("");
     setNewStaffEmail("");
     setNewStaffPassword("");
     setNewStaffPhone("");
+    setNewStaffRole("editor");
+    setNewStaffPermissions(getRoleDefaultPermissions("editor"));
     setShowAddStaffModal(false);
+  };
+
+  // Save Staff Permissions & Details Submit
+  const handleSaveStaffEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStaffMember) return;
+    updateStaff(editingStaffMember.id, {
+      name: editingStaffMember.name.trim(),
+      email: editingStaffMember.email.trim(),
+      password: editingStaffMember.password,
+      role: editingStaffMember.role,
+      baseSalary: Number(editingStaffMember.baseSalary) || 0,
+      phone: editingStaffMember.phone,
+      isActive: editingStaffMember.isActive,
+      permissions: editingStaffMember.permissions,
+    });
+    setSyncNotice(`✅ ${editingStaffMember.name} ની પરમિશન અને વિગતો સેવ થઈ ગઈ!`);
+    setTimeout(() => setSyncNotice(null), 3500);
+    setEditingStaffMember(null);
   };
 
   // Submit Leave Request
@@ -657,14 +696,21 @@ export default function RseOsPage() {
     setShowNewBookingModal(false);
   };
 
-  // Filtered Bookings for Admin (Strictly Sorted by slotDate ascending)
+  // Active User Effective Permissions (Computed safely)
+  const currentPerms = useMemo(() => getEffectivePermissions(currentUser), [currentUser]);
+  const isSuperAdmin = isSuperAdminUser(currentUser);
+
+  // Filtered Bookings for Workspace (Respects canViewAllBookings permission!)
   const filteredBookings = useMemo(() => {
     return bookings
       .filter((b) => {
+        if (!currentPerms.canViewAllBookings && currentUser) {
+          if (b.assignedTo !== currentUser.id) return false;
+        }
         const couple = (b.coupleNames || "").toLowerCase();
         const studio = (b.studioOrClient || "").toLowerCase();
         const code = (b.code || "").toLowerCase();
-        const phone = b.phone || "";
+        const phone = currentPerms.canViewClientContacts ? (b.phone || "") : "";
         const query = searchQuery.toLowerCase();
 
         const matchQuery =
@@ -677,19 +723,22 @@ export default function RseOsPage() {
         return matchQuery && matchRegion && matchEditor;
       })
       .sort((a, b) => new Date(a.slotDate || 0).getTime() - new Date(b.slotDate || 0).getTime());
-  }, [bookings, searchQuery, regionFilter, selectedEditorFilter]);
+  }, [bookings, searchQuery, regionFilter, selectedEditorFilter, currentPerms.canViewAllBookings, currentPerms.canViewClientContacts, currentUser]);
 
-  // Filtered Bookings for Complete Register View
+  // Filtered Bookings for Complete Register View (Respects canViewAllBookings permission!)
   const filteredCalendarBookings = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
 
     return bookings
       .filter((b) => {
+        if (!currentPerms.canViewAllBookings && currentUser) {
+          if (b.assignedTo !== currentUser.id) return false;
+        }
         const couple = (b.coupleNames || "").toLowerCase();
         const studio = (b.studioOrClient || "").toLowerCase();
         const code = (b.code || "").toLowerCase();
-        const phone = b.phone || "";
+        const phone = currentPerms.canViewClientContacts ? (b.phone || "") : "";
         const query = searchQuery.toLowerCase();
 
         const matchQuery =
@@ -720,7 +769,7 @@ export default function RseOsPage() {
         return true;
       })
       .sort((a, b) => new Date(a.slotDate || 0).getTime() - new Date(b.slotDate || 0).getTime());
-  }, [bookings, searchQuery, bookingStatusFilter]);
+  }, [bookings, searchQuery, bookingStatusFilter, currentPerms.canViewAllBookings, currentPerms.canViewClientContacts, currentUser]);
 
   // Employee tasks hook (must be declared at top level to obey rules of hooks)
   const myTasks = useMemo(() => {
@@ -802,7 +851,21 @@ export default function RseOsPage() {
   };
 
   // ─────────────────────────────────────────────────────────────────
-  // SCREEN 1: APPLE-STYLED LOGIN
+  // SCREEN 0: INITIAL SESSION CHECK (Prevents login flicker)
+  // ─────────────────────────────────────────────────────────────────
+  if (!hydrated) {
+    return (
+      <div className="min-h-screen bg-[#F8F7F4] flex flex-col items-center justify-center p-6 font-sans">
+        <div className="h-12 w-12 rounded-2xl bg-[#6B2E4C] text-white flex items-center justify-center font-black text-xl shadow-md animate-pulse">
+          R
+        </div>
+        <p className="mt-3 text-xs font-semibold text-[#8E8E93]">RSE | OS લોડ થઈ રહ્યું છે...</p>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // SCREEN 1: APPLE-STYLED LOGIN (Strict Email & Password Auth)
   // ─────────────────────────────────────────────────────────────────
   if (!currentUser) {
     return (
@@ -905,45 +968,15 @@ export default function RseOsPage() {
               </button>
             </form>
 
-            {/* Quick Demo Autofill Switcher */}
-            <div className="pt-4 border-t border-[#E5E5EA] space-y-2.5">
-              <span className="block text-center text-2xs text-[#8E8E93] font-medium">
-                સ્ટુડિયો ડેમો અકાઉન્ટ્સ (ઝડપી પસંદગી):
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleQuickFill("harsh@rse.studio", "rse@123")}
-                  className="p-2 rounded-xl border border-[#E5E5EA] bg-[#F8F7F4] hover:bg-white text-left transition text-2xs"
-                >
-                  <p className="font-bold text-[#1C1C1E]">👑 Harsh Patel</p>
-                  <p className="text-2xs text-[#8E8E93]">Admin Master</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickFill("smit@rse.studio", "smit@123")}
-                  className="p-2 rounded-xl border border-[#E5E5EA] bg-[#F8F7F4] hover:bg-white text-left transition text-2xs"
-                >
-                  <p className="font-bold text-[#1C1C1E]">🎬 Smit Shah</p>
-                  <p className="text-2xs text-[#8E8E93]">Lead Editor</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickFill("rohit@rse.studio", "rohit@123")}
-                  className="p-2 rounded-xl border border-[#E5E5EA] bg-[#F8F7F4] hover:bg-white text-left transition text-2xs"
-                >
-                  <p className="font-bold text-[#1C1C1E]">🎥 Rohit Varma</p>
-                  <p className="text-2xs text-[#8E8E93]">Wedding Editor</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickFill("anjali@rse.studio", "anjali@123")}
-                  className="p-2 rounded-xl border border-[#E5E5EA] bg-[#F8F7F4] hover:bg-white text-left transition text-2xs"
-                >
-                  <p className="font-bold text-[#1C1C1E]">📢 Anjali Nair</p>
-                  <p className="text-2xs text-[#8E8E93]">Outreach Desk</p>
-                </button>
+            {/* Security Notice (Zero Demo/Passwordless Quick-Logins) */}
+            <div className="pt-4 border-t border-[#E5E5EA] text-center space-y-1">
+              <div className="inline-flex items-center space-x-1.5 text-2xs font-bold text-[#6B2E4C] bg-[#6B2E4C]/10 px-3 py-1 rounded-full">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span>રોલ-આધારિત સુરક્ષિત સ્ટુડિયો લોગિન</span>
               </div>
+              <p className="text-2xs text-[#8E8E93]">
+                એડમિન દ્વારા આપવામાં આવેલ ઈમેઈલ અને પાસવર્ડથી લોગિન કરો. લોગિન થયા પછી તમારી પરમિશન મુજબ જ ડેશબોર્ડ ખૂલશે.
+              </p>
             </div>
           </div>
         </main>
@@ -956,7 +989,30 @@ export default function RseOsPage() {
     );
   }
 
-  const isAdmin = currentUser.role === "admin";
+  const hasExtendedWorkspace =
+    isSuperAdmin ||
+    currentPerms.canViewAllBookings ||
+    currentPerms.canCreateBooking ||
+    currentPerms.canViewPricingAndInvoices ||
+    currentPerms.canViewClientsDirectory ||
+    currentPerms.canManageStaffAndSalary ||
+    currentPerms.canManageSettings;
+
+  const isAdmin = hasExtendedWorkspace;
+  const workspaceProjects = currentPerms.canViewAllBookings ? bookings : myTasks;
+
+  // Ensure active tab is permitted for current user
+  const effectiveAdminTab: typeof adminTab = (() => {
+    if (adminTab === "kanban") return "kanban";
+    if (adminTab === "calendar" && currentPerms.canViewAllBookings) return "calendar";
+    if (adminTab === "invoices" && currentPerms.canViewPricingAndInvoices) return "invoices";
+    if (adminTab === "clients" && currentPerms.canViewClientsDirectory) return "clients";
+    if (adminTab === "staff" && currentPerms.canManageStaffAndSalary) return "staff";
+    if (adminTab === "leaves" && currentPerms.canManageStaffAndSalary) return "leaves";
+    if (adminTab === "settings" && currentPerms.canManageSettings) return "settings";
+    if (adminTab === "my_desk" && !isSuperAdmin) return "my_desk";
+    return "kanban";
+  })();
 
   // ─────────────────────────────────────────────────────────────────
   // SCREEN 2: LOGGED-IN VIEW (MAC / IPHONE)
@@ -985,7 +1041,7 @@ export default function RseOsPage() {
                   RSE | OS
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-[#6B2E4C]/10 text-[#6B2E4C] text-2xs font-bold uppercase tracking-wider">
-                  {currentUser.role}
+                  {isSuperAdmin ? "Super Admin" : currentUser.role}
                 </span>
               </div>
               <p className="text-2xs text-[#8E8E93] hidden sm:block">
@@ -1021,8 +1077,8 @@ export default function RseOsPage() {
               <RefreshCw className={`h-3 w-3 text-[#6B2E4C] ${isSyncing ? "animate-spin" : ""}`} />
             </button>
 
-            {/* Quick Add Booking Button for Admin */}
-            {isAdmin && (
+            {/* Quick Add Booking Button (Permission Controlled) */}
+            {currentPerms.canCreateBooking && (
               <button
                 onClick={openNewBookingModal}
                 className="px-3.5 py-1.5 rounded-xl bg-[#6B2E4C] text-white text-xs font-bold hover:bg-[#58243E] transition shadow-sm flex items-center space-x-1.5 active:scale-95"
@@ -1033,8 +1089,8 @@ export default function RseOsPage() {
               </button>
             )}
 
-            {/* Quick Punch In/Out button for Employees */}
-            {!isAdmin && (
+            {/* Quick Punch In/Out button for Staff (All non-super-admins) */}
+            {!isSuperAdmin && (
               todayRecord?.punchOut ? (
                 <span className="badge bg-[#E5E5EA] text-[#8E8E93] border border-[#D1D1D6] text-2xs px-2 py-1 rounded-lg">
                   Shift Done
@@ -1109,7 +1165,7 @@ export default function RseOsPage() {
             <div className="bg-white p-3.5 rounded-2xl border border-[#E5E5EA] shadow-xs flex items-center justify-between">
               <div>
                 <span className="text-2xs text-[#8E8E93] font-semibold uppercase block">કુલ પ્રોજેક્ટ્સ</span>
-                <span className="text-xl font-black text-[#1C1C1E]">{bookings.length}</span>
+                <span className="text-xl font-black text-[#1C1C1E]">{workspaceProjects.length}</span>
               </div>
               <span className="h-9 w-9 rounded-xl bg-[#6B2E4C]/10 text-[#6B2E4C] flex items-center justify-center font-bold text-sm">
                 🎞️
@@ -1119,7 +1175,7 @@ export default function RseOsPage() {
               <div>
                 <span className="text-2xs text-[#8E8E93] font-semibold uppercase block">ચાલુ એડિટિંગ</span>
                 <span className="text-xl font-black text-[#6B2E4C]">
-                  {bookings.filter(b => b.status === "in_selection_cut" || b.status === "in_edit_polish" || b.status === "in_revision").length}
+                  {workspaceProjects.filter(b => b.status === "in_selection_cut" || b.status === "in_edit_polish" || b.status === "in_revision").length}
                 </span>
               </div>
               <span className="h-9 w-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-sm">
@@ -1130,7 +1186,7 @@ export default function RseOsPage() {
               <div>
                 <span className="text-2xs text-[#8E8E93] font-semibold uppercase block">ડેટા/ફૂટેજ બાકી</span>
                 <span className="text-xl font-black text-amber-700">
-                  {bookings.filter(b => b.status === "awaiting_footage").length}
+                  {workspaceProjects.filter(b => b.status === "awaiting_footage").length}
                 </span>
               </div>
               <span className="h-9 w-9 rounded-xl bg-amber-50 text-amber-800 flex items-center justify-center font-bold text-sm">
@@ -1141,7 +1197,7 @@ export default function RseOsPage() {
               <div>
                 <span className="text-2xs text-[#8E8E93] font-semibold uppercase block">ડિલિવર થયેલ</span>
                 <span className="text-xl font-black text-emerald-700">
-                  {bookings.filter(b => b.status === "delivered_done").length}
+                  {workspaceProjects.filter(b => b.status === "delivered_done").length}
                 </span>
               </div>
               <span className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold text-sm">
@@ -1150,12 +1206,12 @@ export default function RseOsPage() {
             </div>
           </div>
 
-          {/* ── Top Admin Navigation Tabs ── */}
+          {/* ── Top Workspace Navigation Tabs (Permission Controlled) ── */}
           <nav className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto pb-1 border-b border-[#E5E5EA] text-xs font-semibold scrollbar-none">
             <button
               onClick={() => setAdminTab("kanban")}
               className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
-                adminTab === "kanban"
+                effectiveAdminTab === "kanban"
                   ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
                   : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
               }`}
@@ -1163,62 +1219,114 @@ export default function RseOsPage() {
               <Kanban className="h-3.5 w-3.5" />
               <span>📋 પ્રોડક્શન કાનબાન</span>
               <span className="ml-1 text-2xs px-1.5 py-0.2 rounded-full bg-black/20 text-white">
-                {bookings.length}
+                {workspaceProjects.length}
               </span>
             </button>
-            <button
-              onClick={() => setAdminTab("calendar")}
-              className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
-                adminTab === "calendar"
-                  ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
-                  : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
-              }`}
-            >
-              <Calendar className="h-3.5 w-3.5" />
-              <span>📅 તમામ બુકિંગ્સ & સ્લોટ્સ</span>
-            </button>
-            <button
-              onClick={() => setAdminTab("invoices")}
-              className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
-                adminTab === "invoices"
-                  ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
-                  : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
-              }`}
-            >
-              <FileText className="h-3.5 w-3.5" />
-              <span>🧾 ઇન્વોઇસ & બિલિંગ આર્કાઇવ</span>
-              {invoices.length > 0 && (
-                <span className="ml-1 text-2xs px-1.5 py-0.2 rounded-full bg-black/20 text-white">
-                  {invoices.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setAdminTab("staff")}
-              className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
-                adminTab === "staff"
-                  ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
-                  : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
-              }`}
-            >
-              <Users className="h-3.5 w-3.5" />
-              <span>👥 એડિટર્સ & ટીમ ({staff.length})</span>
-            </button>
-            <button
-              onClick={() => setAdminTab("settings")}
-              className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
-                adminTab === "settings"
-                  ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
-                  : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
-              }`}
-            >
-              <Settings className="h-3.5 w-3.5" />
-              <span>⚙️ બેકઅપ & સેટિંગ્સ</span>
-            </button>
+            {currentPerms.canViewAllBookings && (
+              <button
+                onClick={() => setAdminTab("calendar")}
+                className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
+                  effectiveAdminTab === "calendar"
+                    ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
+                    : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
+                }`}
+              >
+                <Calendar className="h-3.5 w-3.5" />
+                <span>📅 તમામ બુકિંગ્સ & સ્લોટ્સ</span>
+              </button>
+            )}
+            {currentPerms.canViewPricingAndInvoices && (
+              <button
+                onClick={() => setAdminTab("invoices")}
+                className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
+                  effectiveAdminTab === "invoices"
+                    ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
+                    : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>🧾 ઇન્વોઇસ & બિલિંગ આર્કાઇવ</span>
+                {invoices.length > 0 && (
+                  <span className="ml-1 text-2xs px-1.5 py-0.2 rounded-full bg-black/20 text-white">
+                    {invoices.length}
+                  </span>
+                )}
+              </button>
+            )}
+            {currentPerms.canViewClientsDirectory && (
+              <button
+                onClick={() => setAdminTab("clients")}
+                className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
+                  effectiveAdminTab === "clients"
+                    ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
+                    : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
+                }`}
+              >
+                <Phone className="h-3.5 w-3.5" />
+                <span>📇 ક્લાયન્ટ્સ ({clients.length})</span>
+              </button>
+            )}
+            {currentPerms.canManageStaffAndSalary && (
+              <>
+                <button
+                  onClick={() => setAdminTab("staff")}
+                  className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
+                    effectiveAdminTab === "staff"
+                      ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
+                      : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  <span>👥 એડિટર્સ & ટીમ ({staff.length})</span>
+                </button>
+                <button
+                  onClick={() => setAdminTab("leaves")}
+                  className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
+                    effectiveAdminTab === "leaves"
+                      ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
+                      : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
+                  }`}
+                >
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  <span>🏖️ રજા અરજીઓ</span>
+                  {leaveRequests.filter((l) => l.status === "pending").length > 0 && (
+                    <span className="ml-1 text-2xs px-1.5 py-0.2 rounded-full bg-amber-400 text-[#6B2E4C] font-black">
+                      {leaveRequests.filter((l) => l.status === "pending").length}
+                    </span>
+                  )}
+                </button>
+              </>
+            )}
+            {currentPerms.canManageSettings && (
+              <button
+                onClick={() => setAdminTab("settings")}
+                className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
+                  effectiveAdminTab === "settings"
+                    ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
+                    : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
+                }`}
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span>⚙️ બેકઅપ & સેટિંગ્સ</span>
+              </button>
+            )}
+            {!isSuperAdmin && (
+              <button
+                onClick={() => setAdminTab("my_desk")}
+                className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition flex items-center space-x-1.5 ${
+                  effectiveAdminTab === "my_desk"
+                    ? "bg-[#6B2E4C] text-white font-bold shadow-sm"
+                    : "text-[#3A3A3C] hover:bg-[#E5E5EA]"
+                }`}
+              >
+                <Briefcase className="h-3.5 w-3.5" />
+                <span>👤 મારી રજા & પગાર</span>
+              </button>
+            )}
           </nav>
 
           {/* ── TAB 2: 8-STAGE KANBAN ── */}
-          {adminTab === "kanban" && (
+          {effectiveAdminTab === "kanban" && (
             <div className="space-y-3 animate-fadeIn">
               {/* Search & Region Filter Bar */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
@@ -1230,7 +1338,7 @@ export default function RseOsPage() {
                         regionFilter === "all" ? "bg-white font-bold text-[#1C1C1E] shadow-sm" : "text-[#8E8E93]"
                       }`}
                     >
-                      બધા ({bookings.length})
+                      બધા ({workspaceProjects.length})
                     </button>
                     <button
                       onClick={() => setRegionFilter("indian")}
@@ -1240,7 +1348,7 @@ export default function RseOsPage() {
                           : "text-[#8E8E93]"
                       }`}
                     >
-                      🇮🇳 ઇન્ડિયન ({bookings.filter((b) => b.region === "indian").length})
+                      🇮🇳 ઇન્ડિયન ({workspaceProjects.filter((b) => b.region === "indian").length})
                     </button>
                     <button
                       onClick={() => setRegionFilter("foreign")}
@@ -1250,7 +1358,7 @@ export default function RseOsPage() {
                           : "text-[#8E8E93]"
                       }`}
                     >
-                      🌍 ફોરેન ({bookings.filter((b) => b.region === "foreign").length})
+                      🌍 ફોરેન ({workspaceProjects.filter((b) => b.region === "foreign").length})
                     </button>
                   </div>
                 </div>
@@ -1268,7 +1376,8 @@ export default function RseOsPage() {
                 </div>
               </div>
 
-              {/* ── Feature 6: Editor Workload & Capacity Meter ── */}
+              {/* ── Feature 6: Editor Workload & Capacity Meter (Admin / All Bookings Permission Only) ── */}
+              {currentPerms.canViewAllBookings && (
               <div className="bg-white p-3 rounded-2xl border border-[#E5E5EA] shadow-2xs space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
@@ -1342,6 +1451,7 @@ export default function RseOsPage() {
                     })}
                 </div>
               </div>
+              )}
 
               {/* 8-Stage Horizontal Scrollable Kanban Columns with Native HTML5 Drag & Drop */}
               <div className="flex space-x-3.5 overflow-x-auto pb-4 select-none">
@@ -1500,7 +1610,7 @@ export default function RseOsPage() {
                                     )}
 
                                     {/* Quick Edit Pen */}
-                                    {isAdmin && (
+                                    {currentPerms.canEditBooking && (
                                       <button
                                         type="button"
                                         title="કાર્ડ વિગતો એડિટ કરો"
@@ -1536,8 +1646,8 @@ export default function RseOsPage() {
                                       )}
                                     </div>
 
-                                    {/* 1-Click Admin Verify Advance */}
-                                    {!item.pricing?.advancePaid && (
+                                    {/* 1-Click Admin Verify Advance (Only when Pricing & Billing permitted) */}
+                                    {currentPerms.canViewPricingAndInvoices && !item.pricing?.advancePaid && (
                                       <button
                                         type="button"
                                         onClick={(e) => {
@@ -1587,22 +1697,24 @@ export default function RseOsPage() {
                                   </span>
 
                                   <div className="flex items-center space-x-1">
-                                    {/* 1-Click Invoice / Bill Generator */}
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setInvoiceModalBooking(item);
-                                      }}
-                                      className="px-1.5 py-0.5 rounded-md bg-purple-50 hover:bg-purple-600 text-purple-800 hover:text-white transition text-2xs font-bold flex items-center space-x-0.5 border border-purple-200"
-                                      title="આ પ્રોજેક્ટનું સત્તાવાર બિલ / ઇન્વોઇસ બનાવો"
-                                    >
-                                      <FileText className="h-2.5 w-2.5" />
-                                      <span>બિલ</span>
-                                    </button>
+                                    {/* 1-Click Invoice / Bill Generator (Permission gated) */}
+                                    {currentPerms.canViewPricingAndInvoices && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setInvoiceModalBooking(item);
+                                        }}
+                                        className="px-1.5 py-0.5 rounded-md bg-purple-50 hover:bg-purple-600 text-purple-800 hover:text-white transition text-2xs font-bold flex items-center space-x-0.5 border border-purple-200"
+                                        title="આ પ્રોજેક્ટનું સત્તાવાર બિલ / ઇન્વોઇસ બનાવો"
+                                      >
+                                        <FileText className="h-2.5 w-2.5" />
+                                        <span>બિલ</span>
+                                      </button>
+                                    )}
 
-                                    {/* 1-Click WhatsApp Quick Action */}
-                                    {item.phone && (
+                                    {/* 1-Click WhatsApp Quick Action (Permission gated) */}
+                                    {currentPerms.canViewClientContacts && item.phone && (
                                       <a
                                         href={getWhatsAppUrl(item.phone, getWhatsAppStageMessage(item))}
                                         target="_blank"
@@ -1648,7 +1760,7 @@ export default function RseOsPage() {
           )}
 
           {/* ── TAB 2: COMPLETE BOOKINGS & SLOTS REGISTER ── */}
-          {adminTab === "calendar" && (
+          {effectiveAdminTab === "calendar" && currentPerms.canViewAllBookings && (
             <div className="space-y-4 animate-fadeIn">
               {/* Header & Filter Controls */}
               <div className="apple-glass-card rounded-2xl p-4 sm:p-5 space-y-4">
@@ -1662,13 +1774,15 @@ export default function RseOsPage() {
                       લાઈવ વેબસાઇટ અને સ્ટુડિયોમાંથી બુક થયેલા તમામ કામનું લિસ્ટ • સ્લોટ તારીખ મુજબ
                     </p>
                   </div>
-                  <button
-                    onClick={openNewBookingModal}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#6B2E4C] text-white text-xs font-bold hover:bg-[#58243E] transition flex items-center space-x-1.5 shadow-sm"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>+ નવું બુકિંગ ઉમેરો</span>
-                  </button>
+                  {currentPerms.canCreateBooking && (
+                    <button
+                      onClick={openNewBookingModal}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#6B2E4C] text-white text-xs font-bold hover:bg-[#58243E] transition flex items-center space-x-1.5 shadow-sm"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>+ નવું બુકિંગ ઉમેરો</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Filters & Search Row */}
@@ -1747,12 +1861,16 @@ export default function RseOsPage() {
                       <tr>
                         <th className="px-3 py-2.5">સ્લોટ તારીખ</th>
                         <th className="px-3 py-2.5">કોડ & કપલ</th>
-                        <th className="px-3 py-2.5">સંપર્ક / WhatsApp</th>
+                        {currentPerms.canViewClientContacts && (
+                          <th className="px-3 py-2.5">સંપર્ક / WhatsApp</th>
+                        )}
                         <th className="px-3 py-2.5">પેકેજ & ફૂટેજ</th>
                         <th className="px-3 py-2.5">સોંપાયેલ એડિટર</th>
                         <th className="px-3 py-2.5">પાઇપલાઇન સ્ટેજ</th>
                         <th className="px-3 py-2.5">ડિલિવરી ટાર્ગેટ</th>
-                        <th className="px-3 py-2.5">પેમેન્ટ</th>
+                        {currentPerms.canViewPricingAndInvoices && (
+                          <th className="px-3 py-2.5">પેમેન્ટ</th>
+                        )}
                         <th className="px-3 py-2.5 text-right">વિગતો</th>
                       </tr>
                     </thead>
@@ -1793,18 +1911,20 @@ export default function RseOsPage() {
                                 <p className="font-bold text-[#1C1C1E]">{b.coupleNames}</p>
                                 <p className="text-2xs text-[#8E8E93] truncate max-w-[140px]">{b.studioOrClient}</p>
                               </td>
-                              <td className="px-3 py-2.5 whitespace-nowrap">
-                                <p className="text-2xs font-mono text-[#3A3A3C]">{b.phone || "-"}</p>
-                                <a
-                                  href={`https://wa.me/${(b.phone || "").replace(/\D/g, "")}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center space-x-1 text-2xs font-bold text-emerald-700 hover:underline pt-0.5"
-                                >
-                                  <Phone className="h-2.5 w-2.5" />
-                                  <span>WhatsApp</span>
-                                </a>
-                              </td>
+                              {currentPerms.canViewClientContacts && (
+                                <td className="px-3 py-2.5 whitespace-nowrap">
+                                  <p className="text-2xs font-mono text-[#3A3A3C]">{b.phone || "-"}</p>
+                                  <a
+                                    href={`https://wa.me/${(b.phone || "").replace(/\D/g, "")}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center space-x-1 text-2xs font-bold text-emerald-700 hover:underline pt-0.5"
+                                  >
+                                    <Phone className="h-2.5 w-2.5" />
+                                    <span>WhatsApp</span>
+                                  </a>
+                                </td>
+                              )}
                               <td className="px-3 py-2.5">
                                 <p className="text-2xs font-medium text-[#1C1C1E] truncate max-w-[150px]">{b.packageType || "સ્ટાન્ડર્ડ"}</p>
                                 {b.rawLink ? (
@@ -1853,26 +1973,28 @@ export default function RseOsPage() {
                               <td className="px-3 py-2.5 whitespace-nowrap font-mono text-2xs font-bold text-[#6B2E4C]">
                                 {b.deliveryDate || "-"}
                               </td>
-                              <td className="px-3 py-2.5 whitespace-nowrap text-2xs">
-                                <span className="block font-mono font-bold text-[#1C1C1E]">
-                                  ₹{(b.pricing?.totalAmount || 0).toLocaleString("en-IN")}
-                                </span>
-                                {isLabhPancham ? (
-                                  b.pricing?.advancePaid ? (
-                                    <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold">
-                                      ✓ ₹1,000 કન્ફર્મ
-                                    </span>
-                                  ) : (
-                                    <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-red-100 text-red-900 border border-red-300 font-bold">
-                                      ⚠️ ₹1,000 પેમેન્ટ બાકી
-                                    </span>
-                                  )
-                                ) : (
-                                  <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-emerald-100 text-emerald-800 font-semibold">
-                                    ૫૦% એડવાન્સ ✓
+                              {currentPerms.canViewPricingAndInvoices && (
+                                <td className="px-3 py-2.5 whitespace-nowrap text-2xs">
+                                  <span className="block font-mono font-bold text-[#1C1C1E]">
+                                    ₹{(b.pricing?.totalAmount || 0).toLocaleString("en-IN")}
                                   </span>
-                                )}
-                              </td>
+                                  {isLabhPancham ? (
+                                    b.pricing?.advancePaid ? (
+                                      <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold">
+                                        ✓ ₹1,000 કન્ફર્મ
+                                      </span>
+                                    ) : (
+                                      <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-red-100 text-red-900 border border-red-300 font-bold">
+                                        ⚠️ ₹1,000 પેમેન્ટ બાકી
+                                      </span>
+                                    )
+                                  ) : (
+                                    <span className="inline-block px-1.5 py-0.2 rounded text-2xs bg-emerald-100 text-emerald-800 font-semibold">
+                                      ૫૦% એડવાન્સ ✓
+                                    </span>
+                                  )}
+                                </td>
+                              )}
                               <td className="px-3 py-2.5 whitespace-nowrap text-right space-x-1.5">
                                 <button
                                   onClick={() => setSelectedBookingForDetails(b)}
@@ -1880,26 +2002,30 @@ export default function RseOsPage() {
                                 >
                                   વિગતો
                                 </button>
-                                {isAdmin && (
-                                  <div className="flex items-center space-x-1">
-                                    <button
-                                      onClick={() => setInvoiceModalBooking(b)}
-                                      className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-2xs font-bold inline-flex items-center space-x-1"
-                                      title="આ પ્રોજેક્ટનું સત્તાવાર બિલ / ઇન્વોઇસ બનાવો"
-                                    >
-                                      <FileText className="h-2.5 w-2.5" />
-                                      <span>બિલ</span>
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setSelectedBookingForDetails(b);
-                                        startEditingBooking(b);
-                                      }}
-                                      className="px-2 py-1 rounded-lg bg-[#6B2E4C] hover:bg-[#58243E] text-white text-2xs font-bold inline-flex items-center space-x-1"
-                                    >
-                                      <Edit2 className="h-2.5 w-2.5" />
-                                      <span>એડિટ</span>
-                                    </button>
+                                {(currentPerms.canViewPricingAndInvoices || currentPerms.canEditBooking) && (
+                                  <div className="inline-flex items-center space-x-1">
+                                    {currentPerms.canViewPricingAndInvoices && (
+                                      <button
+                                        onClick={() => setInvoiceModalBooking(b)}
+                                        className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-2xs font-bold inline-flex items-center space-x-1"
+                                        title="આ પ્રોજેક્ટનું સત્તાવાર બિલ / ઇન્વોઇસ બનાવો"
+                                      >
+                                        <FileText className="h-2.5 w-2.5" />
+                                        <span>બિલ</span>
+                                      </button>
+                                    )}
+                                    {currentPerms.canEditBooking && (
+                                      <button
+                                        onClick={() => {
+                                          setSelectedBookingForDetails(b);
+                                          startEditingBooking(b);
+                                        }}
+                                        className="px-2 py-1 rounded-lg bg-[#6B2E4C] hover:bg-[#58243E] text-white text-2xs font-bold inline-flex items-center space-x-1"
+                                      >
+                                        <Edit2 className="h-2.5 w-2.5" />
+                                        <span>એડિટ</span>
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </td>
@@ -1915,7 +2041,7 @@ export default function RseOsPage() {
           )}
 
           {/* ── TAB: INVOICES & BILLING ARCHIVE (વર્ષો સુધી સુરક્ષિત ક્લાઉડ આર્કાઇવ) ── */}
-          {adminTab === "invoices" && (
+          {effectiveAdminTab === "invoices" && currentPerms.canViewPricingAndInvoices && (
             <div className="apple-glass-card rounded-2xl p-5 space-y-4 animate-fadeIn">
               {/* Header */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-[#E5E5EA] pb-3 gap-2">
@@ -2145,15 +2271,15 @@ export default function RseOsPage() {
             </div>
           )}
 
-          {adminTab === "staff" && (
+          {effectiveAdminTab === "staff" && currentPerms.canManageStaffAndSalary && (
             <div className="apple-glass-card rounded-2xl p-5 space-y-4 animate-fadeIn">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-[#E5E5EA] pb-3 gap-2">
                 <div>
                   <h3 className="text-sm font-bold text-[#1C1C1E]">
-                    સ્ટુડિયો સ્ટાફ અને પેરોલ રજિસ્ટર (Master Payroll)
+                    સ્ટુડિયો સ્ટાફ, પરમિશન અને પેરોલ રજિસ્ટર (Master Payroll & Access Control)
                   </h3>
                   <p className="text-xs text-[#8E8E93]">
-                    નવા એમ્પ્લોયી ઉમેરો, ઈમેઈલ-પાસવર્ડ મેનેજ કરો, હાજરી અને પે-સ્લિપ
+                    નવા એમ્પ્લોયી ઉમેરો, કોને કઈ સ્ક્રીન દેખાવી જોઈએ તેની પરમિશન સેટ કરો, હાજરી અને પે-સ્લિપ
                   </p>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -2162,7 +2288,11 @@ export default function RseOsPage() {
                     {staff.reduce((acc, s) => acc + s.baseSalary, 0).toLocaleString("en-IN")}
                   </span>
                   <button
-                    onClick={() => setShowAddStaffModal(true)}
+                    onClick={() => {
+                      setNewStaffRole("editor");
+                      setNewStaffPermissions(getRoleDefaultPermissions("editor"));
+                      setShowAddStaffModal(true);
+                    }}
                     className="px-3 py-1.5 rounded-xl bg-[#6B2E4C] text-white text-xs font-bold hover:bg-[#58243E] transition flex items-center space-x-1"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -2177,7 +2307,7 @@ export default function RseOsPage() {
                   <thead className="bg-[#F8F7F4] text-[#8E8E93] border-b border-[#E5E5EA] text-2xs uppercase tracking-wider font-semibold">
                     <tr>
                       <th className="px-4 py-3">કર્મચારી (Staff)</th>
-                      <th className="px-4 py-3">રોલ (Role)</th>
+                      <th className="px-4 py-3">રોલ & પરમિશન (Access)</th>
                       <th className="px-4 py-3">આજની હાજરી</th>
                       <th className="px-4 py-3">બેઝિક પગાર</th>
                       <th className="px-4 py-3">સોંપાયેલ / પૂર્ણ ફિલ્મો</th>
@@ -2195,17 +2325,42 @@ export default function RseOsPage() {
                       const deliveredCount = bookings.filter(
                         (b) => b.assignedTo === member.id && b.status === "delivered_done"
                       ).length;
+                      const memberPerms = getEffectivePermissions(member);
+                      const isMemberSuper = isSuperAdminUser(member);
+                      const activePermCount = Object.values(memberPerms).filter(Boolean).length;
 
                       return (
                         <tr key={member.id} className="hover:bg-white/60 transition">
                           <td className="px-4 py-3">
-                            <p className="font-bold text-[#1C1C1E]">{member.name}</p>
+                            <div className="flex items-center space-x-1.5">
+                              <p className="font-bold text-[#1C1C1E]">{member.name}</p>
+                              {!member.isActive && (
+                                <span className="px-1.5 py-0.2 rounded bg-red-100 text-red-700 text-3xs font-bold">
+                                  બંધ
+                                </span>
+                              )}
+                            </div>
                             <p className="text-2xs text-[#8E8E93] font-mono">{member.email}</p>
                           </td>
-                          <td className="px-4 py-3">
-                            <span className="px-2 py-0.5 rounded-md bg-[#E5E5EA] text-[#3A3A3C] font-semibold text-2xs capitalize">
-                              {member.role}
+                          <td className="px-4 py-3 space-y-1">
+                            <span className="inline-block px-2 py-0.5 rounded-md bg-[#E5E5EA] text-[#3A3A3C] font-semibold text-2xs capitalize">
+                              {isMemberSuper ? "👑 Super Admin" : member.role}
                             </span>
+                            <div className="flex flex-wrap gap-1">
+                              {isMemberSuper ? (
+                                <span className="text-3xs px-1.5 py-0.2 rounded bg-purple-50 text-[#6B2E4C] border border-[#6B2E4C]/20 font-bold">
+                                  સંપૂર્ણ કંટ્રોલ (All Access)
+                                </span>
+                              ) : activePermCount === 0 ? (
+                                <span className="text-3xs px-1.5 py-0.2 rounded bg-gray-100 text-gray-700 border border-gray-200">
+                                  ફક્ત પોતાના એડિટ્સ
+                                </span>
+                              ) : (
+                                <span className="text-3xs px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold">
+                                  {activePermCount}/9 પરમિશન ચાલુ
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             {isOnline ? (
@@ -2224,14 +2379,26 @@ export default function RseOsPage() {
                           <td className="px-4 py-3 text-2xs font-medium text-[#3A3A3C]">
                             {assignedCount} Assigned • {deliveredCount} Done
                           </td>
-                          <td className="px-4 py-3 text-right space-x-1">
+                          <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
+                            <button
+                              onClick={() =>
+                                setEditingStaffMember({
+                                  ...member,
+                                  permissions: getEffectivePermissions(member),
+                                })
+                              }
+                              className="px-2.5 py-1 rounded-lg bg-[#6B2E4C]/10 hover:bg-[#6B2E4C] text-[#6B2E4C] hover:text-white text-2xs font-bold transition"
+                              title="પરમિશન, પાસવર્ડ અને પગાર મેનેજ કરો"
+                            >
+                              🔐 પરમિશન / એડિટ
+                            </button>
                             <button
                               onClick={() => setSelectedStaffForSlip(member)}
                               className="px-2.5 py-1 rounded-lg border border-[#D1D1D6] hover:bg-white text-2xs font-semibold"
                             >
                               Pay Slip
                             </button>
-                            {member.id !== "s1" && (
+                            {!isMemberSuper && (
                               <button
                                 onClick={() => {
                                   if (confirm(`શું તમે ${member.name} નું ખાતું હટાવવા માંગો છો?`)) {
@@ -2254,7 +2421,7 @@ export default function RseOsPage() {
           )}
 
           {/* ── TAB 5: LEAVE MANAGEMENT (રજા અરજી) ── */}
-          {adminTab === "leaves" && (
+          {effectiveAdminTab === "leaves" && currentPerms.canManageStaffAndSalary && (
             <div className="apple-glass-card rounded-2xl p-5 space-y-4 animate-fadeIn">
               <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3">
                 <div>
@@ -2345,7 +2512,7 @@ export default function RseOsPage() {
           )}
 
           {/* ── TAB 6: CLIENTS DIRECTORY ── */}
-          {adminTab === "clients" && (
+          {effectiveAdminTab === "clients" && currentPerms.canViewClientsDirectory && (
             <div className="apple-glass-card rounded-2xl p-5 space-y-4 animate-fadeIn">
               <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3">
                 <div>
@@ -2416,7 +2583,7 @@ export default function RseOsPage() {
           )}
 
           {/* ── TAB 7: SETTINGS & BACKUP ── */}
-          {adminTab === "settings" && (
+          {effectiveAdminTab === "settings" && currentPerms.canManageSettings && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-fadeIn">
               {/* Cloud Database (MongoDB Atlas) Card */}
               <div className="apple-glass-card rounded-2xl p-5 space-y-4 lg:col-span-2 border border-[#E5E5EA]">
@@ -2626,51 +2793,132 @@ export default function RseOsPage() {
             </div>
           )}
 
-          {/* ── iPhone / Mobile Native Bottom Navigation Bar ── */}
+          {/* ── TAB 8: PERSONAL LEAVE & PAY SLIP FOR NON-SUPER-ADMIN STAFF ── */}
+          {effectiveAdminTab === "my_desk" && !isSuperAdmin && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
+              <div className="apple-glass-card rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#1C1C1E]">મારી રજા અરજીઓ</h3>
+                    <p className="text-xs text-[#8E8E93]">રજા માટે અરજી કરો અને સ્ટેટસ જુઓ</p>
+                  </div>
+                  <button
+                    onClick={() => setShowLeaveApplyModal(true)}
+                    className="px-3 py-1.5 rounded-xl bg-[#6B2E4C] text-white text-xs font-bold hover:bg-[#58243E] transition"
+                  >
+                    + રજા અરજી
+                  </button>
+                </div>
+                <div className="space-y-2.5">
+                  {leaveRequests.filter((l) => l.staffId === currentUser.id).length === 0 ? (
+                    <p className="text-xs text-[#8E8E93] text-center py-6">કોઈ રજા અરજી નથી.</p>
+                  ) : (
+                    leaveRequests
+                      .filter((l) => l.staffId === currentUser.id)
+                      .map((lv) => (
+                        <div key={lv.id} className="p-3 rounded-xl border border-[#E5E5EA] bg-white text-xs space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold">{lv.startDate} થી {lv.endDate} ({lv.totalDays} દિવસ)</span>
+                            <span className="px-2 py-0.5 rounded-full bg-[#F2F2F7] text-2xs font-bold capitalize">{lv.status}</span>
+                          </div>
+                          <p className="text-[#3A3A3C]">{lv.reason}</p>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+              <div className="apple-glass-card rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#1C1C1E]">મારો માસિક પગાર & હાજરી</h3>
+                    <p className="text-xs text-[#8E8E93]">તમારા બેઝિક પગાર અને હાજરીની વિગત</p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedStaffForSlip(currentUser)}
+                    className="px-3 py-1.5 rounded-xl border border-[#D1D1D6] hover:bg-white text-xs font-bold"
+                  >
+                    Pay Slip જુઓ
+                  </button>
+                </div>
+                <div className="p-4 rounded-xl bg-white border border-[#E5E5EA] space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-[#8E8E93]">બેઝિક માસિક પગાર:</span>
+                    <span className="font-mono font-bold text-[#1C1C1E]">₹{currentUser.baseSalary.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#8E8E93]">કુલ હાજરી દિવસ:</span>
+                    <span className="font-mono font-bold text-emerald-700">
+                      {attendance.filter((a) => a.staffId === currentUser.id).length} દિવસ
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── iPhone / Mobile Native Bottom Navigation Bar (Permission Gated) ── */}
           <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-lg border-t border-[#E5E5EA] px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-2xl">
             <button
               onClick={() => setAdminTab("kanban")}
               className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
-                adminTab === "kanban" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
+                effectiveAdminTab === "kanban" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
               }`}
             >
               <Kanban className="h-5 w-5 mb-0.5" />
               <span>કાનબાન</span>
             </button>
-            <button
-              onClick={() => setAdminTab("calendar")}
-              className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
-                adminTab === "calendar" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
-              }`}
-            >
-              <Calendar className="h-5 w-5 mb-0.5" />
-              <span>બુકિંગ્સ</span>
-            </button>
-            <button
-              onClick={openNewBookingModal}
-              className="flex items-center justify-center h-11 w-11 -mt-5 rounded-full bg-[#6B2E4C] text-white shadow-lg border-2 border-white active:scale-95 transition"
-              title="+ નવું બુકિંગ ઉમેરો"
-            >
-              <Plus className="h-6 w-6" />
-            </button>
-            <button
-              onClick={() => setAdminTab("invoices")}
-              className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
-                adminTab === "invoices" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
-              }`}
-            >
-              <FileText className="h-5 w-5 mb-0.5" />
-              <span>ઇન્વોઇસ</span>
-            </button>
-            <button
-              onClick={() => setAdminTab("staff")}
-              className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
-                adminTab === "staff" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
-              }`}
-            >
-              <Users className="h-5 w-5 mb-0.5" />
-              <span>ટીમ</span>
-            </button>
+            {currentPerms.canViewAllBookings && (
+              <button
+                onClick={() => setAdminTab("calendar")}
+                className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
+                  effectiveAdminTab === "calendar" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
+                }`}
+              >
+                <Calendar className="h-5 w-5 mb-0.5" />
+                <span>બુકિંગ્સ</span>
+              </button>
+            )}
+            {currentPerms.canCreateBooking && (
+              <button
+                onClick={openNewBookingModal}
+                className="flex items-center justify-center h-11 w-11 -mt-5 rounded-full bg-[#6B2E4C] text-white shadow-lg border-2 border-white active:scale-95 transition"
+                title="+ નવું બુકિંગ ઉમેરો"
+              >
+                <Plus className="h-6 w-6" />
+              </button>
+            )}
+            {currentPerms.canViewPricingAndInvoices && (
+              <button
+                onClick={() => setAdminTab("invoices")}
+                className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
+                  effectiveAdminTab === "invoices" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
+                }`}
+              >
+                <FileText className="h-5 w-5 mb-0.5" />
+                <span>ઇન્વોઇસ</span>
+              </button>
+            )}
+            {currentPerms.canManageStaffAndSalary ? (
+              <button
+                onClick={() => setAdminTab("staff")}
+                className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
+                  effectiveAdminTab === "staff" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
+                }`}
+              >
+                <Users className="h-5 w-5 mb-0.5" />
+                <span>ટીમ</span>
+              </button>
+            ) : !isSuperAdmin ? (
+              <button
+                onClick={() => setAdminTab("my_desk")}
+                className={`flex flex-col items-center justify-center px-2 py-1 rounded-xl text-3xs font-bold transition ${
+                  effectiveAdminTab === "my_desk" ? "text-[#6B2E4C]" : "text-[#8E8E93]"
+                }`}
+              >
+                <Briefcase className="h-5 w-5 mb-0.5" />
+                <span>મારું ડેસ્ક</span>
+              </button>
+            ) : null}
           </nav>
         </div>
       ) : (
@@ -2788,7 +3036,7 @@ export default function RseOsPage() {
                               <span>લાભ પાંચમ મુહૂર્ત (15% OFF)</span>
                             </span>
                             <span className="font-mono text-2xs font-extrabold text-emerald-800 bg-white/90 px-1.5 py-0.2 rounded border border-emerald-300">
-                              ₹1,000 ટોકન
+                              મુહૂર્ત સ્લોટ
                             </span>
                           </div>
                         )}
@@ -3299,18 +3547,18 @@ export default function RseOsPage() {
         </div>
       )}
 
-      {/* MODAL 2: ADD NEW EMPLOYEE */}
+      {/* MODAL 2: ADD NEW EMPLOYEE WITH CUSTOM PERMISSIONS */}
       {showAddStaffModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="apple-glass-card w-full max-w-md p-6 rounded-3xl space-y-4 shadow-2xl bg-white text-xs">
+          <div className="apple-glass-card w-full max-w-lg p-6 rounded-3xl space-y-4 shadow-2xl bg-white max-h-[90vh] overflow-y-auto text-xs">
             <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3">
               <h3 className="font-bold text-sm text-[#1C1C1E] flex items-center space-x-1.5">
                 <Users className="h-4 w-4 text-[#6B2E4C]" />
-                <span>+ નવો એમ્પ્લોયી ઉમેરો (Add Staff)</span>
+                <span>+ નવો એમ્પ્લોયી ઉમેરો (Add Staff & Access)</span>
               </h3>
               <button
                 onClick={() => setShowAddStaffModal(false)}
-                className="text-[#8E8E93] hover:text-[#1C1C1E] font-bold"
+                className="text-[#8E8E93] hover:text-[#1C1C1E] font-bold p-1"
               >
                 ✕
               </button>
@@ -3341,7 +3589,7 @@ export default function RseOsPage() {
                     required
                     value={newStaffEmail}
                     onChange={(e) => setNewStaffEmail(e.target.value)}
-                    placeholder="manoj@rse.studio"
+                    placeholder="manoj@rse-edit.com"
                     className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono"
                   />
                 </div>
@@ -3363,17 +3611,22 @@ export default function RseOsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
-                    હોદ્દો (Role)
+                    હોદ્દો (Role Preset)
                   </label>
                   <select
                     value={newStaffRole}
-                    onChange={(e) => setNewStaffRole(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs"
+                    onChange={(e) => {
+                      const roleVal = e.target.value as Role;
+                      setNewStaffRole(roleVal);
+                      setNewStaffPermissions(getRoleDefaultPermissions(roleVal));
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-semibold"
                   >
-                    <option value="editor">🎬 Editor (એડિટર)</option>
-                    <option value="outreach">📢 Outreach (ક્લાયન્ટ કનેક્ટ)</option>
-                    <option value="accountant">💼 Accountant (એકાઉન્ટન્ટ)</option>
+                    <option value="editor">🎬 Editor (માત્ર પોતાના એડિટ્સ)</option>
+                    <option value="outreach">📢 Outreach / Manager (બુકિંગ & ક્લાયન્ટ)</option>
+                    <option value="accountant">💼 Accountant (બિલિંગ & હિસાબ)</option>
                     <option value="social">📱 Social Media</option>
+                    {isSuperAdmin && <option value="admin">👑 Admin (મેનેજમેન્ટ)</option>}
                   </select>
                 </div>
                 <div>
@@ -3390,6 +3643,40 @@ export default function RseOsPage() {
                 </div>
               </div>
 
+              {/* Granular Permissions Control */}
+              <div className="bg-[#F8F7F4] p-3 rounded-2xl border border-[#E5E5EA] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xs font-bold text-[#6B2E4C] uppercase flex items-center space-x-1">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <span>આ એમ્પ્લોયીને શું-શું દેખાવું જોઈએ? (Permissions)</span>
+                  </span>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {PERMISSION_LABELS.map((p) => (
+                    <label
+                      key={p.key}
+                      className="flex items-start space-x-2 p-1.5 rounded-xl bg-white border border-[#E5E5EA] cursor-pointer hover:border-[#6B2E4C]/40 transition"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={Boolean(newStaffPermissions[p.key])}
+                        onChange={(e) =>
+                          setNewStaffPermissions({
+                            ...newStaffPermissions,
+                            [p.key]: e.target.checked,
+                          })
+                        }
+                        className="mt-0.5 rounded text-[#6B2E4C] focus:ring-[#6B2E4C] h-3.5 w-3.5"
+                      />
+                      <div className="leading-tight">
+                        <span className="block font-bold text-2xs text-[#1C1C1E]">{p.label}</span>
+                        <span className="block text-3xs text-[#8E8E93]">{p.hint}</span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex justify-end space-x-2 pt-2 border-t border-[#E5E5EA]">
                 <button
                   type="button"
@@ -3403,6 +3690,214 @@ export default function RseOsPage() {
                   className="px-4 py-1.5 rounded-xl bg-[#6B2E4C] text-white font-bold text-xs hover:bg-[#58243E]"
                 >
                   એમ્પ્લોયી સેવ કરો
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 11: EDIT STAFF DETAILS & PERMISSIONS */}
+      {editingStaffMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="apple-glass-card w-full max-w-lg p-6 rounded-3xl space-y-4 shadow-2xl bg-white max-h-[90vh] overflow-y-auto text-xs">
+            <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3">
+              <h3 className="font-bold text-sm text-[#1C1C1E] flex items-center space-x-1.5">
+                <ShieldCheck className="h-4 w-4 text-[#6B2E4C]" />
+                <span>🔐 પરમિશન & ખાતા વિગત ({editingStaffMember.name})</span>
+              </h3>
+              <button
+                onClick={() => setEditingStaffMember(null)}
+                className="text-[#8E8E93] hover:text-[#1C1C1E] font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveStaffEdit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
+                    કર્મચારીનું નામ *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingStaffMember.name}
+                    onChange={(e) =>
+                      setEditingStaffMember({ ...editingStaffMember, name: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
+                    પાસવર્ડ *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingStaffMember.password}
+                    onChange={(e) =>
+                      setEditingStaffMember({ ...editingStaffMember, password: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
+                    ઈમેઈલ (Login ID) *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={editingStaffMember.email}
+                    onChange={(e) =>
+                      setEditingStaffMember({ ...editingStaffMember, email: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
+                    બેઝિક માસિક પગાર (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={editingStaffMember.baseSalary}
+                    onChange={(e) =>
+                      setEditingStaffMember({
+                        ...editingStaffMember,
+                        baseSalary: Number(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              {!isSuperAdminUser(editingStaffMember) && (
+                <>
+                  <div className="grid grid-cols-2 gap-2 items-center">
+                    <div>
+                      <label className="block text-2xs font-bold text-[#8E8E93] uppercase mb-1">
+                        હોદ્દો (Role Preset)
+                      </label>
+                      <select
+                        value={editingStaffMember.role}
+                        onChange={(e) => {
+                          const roleVal = e.target.value as Role;
+                          setEditingStaffMember({
+                            ...editingStaffMember,
+                            role: roleVal,
+                            permissions: getRoleDefaultPermissions(roleVal),
+                          });
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-[#D1D1D6] bg-white text-xs font-semibold"
+                      >
+                        <option value="editor">🎬 Editor</option>
+                        <option value="outreach">📢 Outreach / Manager</option>
+                        <option value="accountant">💼 Accountant</option>
+                        <option value="social">📱 Social Media</option>
+                        {isSuperAdmin && <option value="admin">👑 Admin</option>}
+                      </select>
+                    </div>
+                    <div className="pt-4">
+                      <label className="flex items-center space-x-2 p-2 rounded-xl bg-[#F8F7F4] border border-[#E5E5EA] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editingStaffMember.isActive}
+                          onChange={(e) =>
+                            setEditingStaffMember({
+                              ...editingStaffMember,
+                              isActive: e.target.checked,
+                            })
+                          }
+                          className="rounded text-emerald-600 h-4 w-4"
+                        />
+                        <span className="font-bold text-xs text-[#1C1C1E]">
+                          {editingStaffMember.isActive ? "✓ ખાતું ચાલુ છે (Active)" : "⛔ ખાતું બંધ (Blocked)"}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Granular Permissions Control */}
+                  <div className="bg-[#F8F7F4] p-3 rounded-2xl border border-[#E5E5EA] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xs font-bold text-[#6B2E4C] uppercase">
+                        તમે ઈચ્છો એ જ સ્ક્રીન & સુવિધા ચાલુ રાખો:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingStaffMember({
+                            ...editingStaffMember,
+                            permissions: getRoleDefaultPermissions(editingStaffMember.role),
+                          })
+                        }
+                        className="text-3xs font-bold text-[#6B2E4C] hover:underline"
+                      >
+                        Reset Role Default
+                      </button>
+                    </div>
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                      {PERMISSION_LABELS.map((p) => {
+                        const curPermsObj =
+                          editingStaffMember.permissions || getEffectivePermissions(editingStaffMember);
+                        return (
+                          <label
+                            key={p.key}
+                            className="flex items-start space-x-2 p-2 rounded-xl bg-white border border-[#E5E5EA] cursor-pointer hover:border-[#6B2E4C]/40 transition"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={Boolean(curPermsObj[p.key])}
+                              onChange={(e) =>
+                                setEditingStaffMember({
+                                  ...editingStaffMember,
+                                  permissions: {
+                                    ...curPermsObj,
+                                    [p.key]: e.target.checked,
+                                  },
+                                })
+                              }
+                              className="mt-0.5 rounded text-[#6B2E4C] focus:ring-[#6B2E4C] h-4 w-4"
+                            />
+                            <div className="leading-tight">
+                              <span className="block font-bold text-xs text-[#1C1C1E]">{p.label}</span>
+                              <span className="block text-2xs text-[#8E8E93]">{p.hint}</span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {isSuperAdminUser(editingStaffMember) && (
+                <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 text-2xs text-[#6B2E4C] font-semibold">
+                  👑 Super Admin પાસે હંમેશા સમગ્ર ઓફિસ OS નો ૧૦૦% કંટ્રોલ સુરક્ષિત રહે છે.
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-2 pt-2 border-t border-[#E5E5EA]">
+                <button
+                  type="button"
+                  onClick={() => setEditingStaffMember(null)}
+                  className="px-4 py-1.5 rounded-xl border border-[#D1D1D6] text-xs"
+                >
+                  રદ્દ કરો
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-1.5 rounded-xl bg-[#6B2E4C] text-white font-bold text-xs hover:bg-[#58243E] shadow-sm"
+                >
+                  ✓ પરમિશન સેવ કરો
                 </button>
               </div>
             </form>
@@ -3534,7 +4029,7 @@ export default function RseOsPage() {
                 </span>
               </div>
               <div className="flex items-center space-x-2">
-                {isAdmin && !isEditingBooking && (
+                {currentPerms.canEditBooking && !isEditingBooking && (
                   <button
                     type="button"
                     onClick={() => startEditingBooking(selectedBookingForDetails)}
@@ -3544,7 +4039,7 @@ export default function RseOsPage() {
                     <span>એડિટ કરો</span>
                   </button>
                 )}
-                {isAdmin && !isEditingBooking && (
+                {currentPerms.canDeleteBooking && !isEditingBooking && (
                   <button
                     type="button"
                     title="બુકિંગ ડિલીટ કરો"
@@ -4270,11 +4765,12 @@ export default function RseOsPage() {
                         </div>
                         <div className="text-2xs text-amber-900 font-medium">
                           {selectedBookingForDetails.pricing?.advancePaid
-                            ? "✓ ₹1,000 ટોકન પેમેન્ટ વેરિફાય થઈ ગયું છે. સ્લોટ સત્તાવાર કન્ફર્મ છે."
-                            : "⚠️ ₹1,000 પેમેન્ટ હજી વેરિફાય થયું નથી. પેમેન્ટ વગર સ્લોટ બુક થયેલો ગણાશે નહીં."}
+                            ? "✓ ટોકન પેમેન્ટ વેરિફાય થઈ ગયું છે. સ્લોટ સત્તાવાર કન્ફર્મ છે."
+                            : "⚠️ ટોકન પેમેન્ટ હજી વેરિફાય થયું નથી. પેમેન્ટ વગર સ્લોટ બુક થયેલો ગણાશે નહીં."}
                         </div>
                       </div>
                     </div>
+                    {currentPerms.canViewPricingAndInvoices && (
                     <div className="sm:text-right shrink-0">
                       {selectedBookingForDetails.pricing?.advancePaid ? (
                         <div className="font-mono text-xs font-black text-emerald-800 bg-white/90 px-2 py-1 rounded-lg border border-emerald-300">
@@ -4301,6 +4797,7 @@ export default function RseOsPage() {
                         </button>
                       )}
                     </div>
+                    )}
                   </div>
                 )}
 
@@ -4310,31 +4807,13 @@ export default function RseOsPage() {
                       {selectedBookingForDetails.coupleNames}
                     </h4>
                     <p className="text-xs text-[#8E8E93]">{selectedBookingForDetails.studioOrClient}</p>
-                    <p className="text-2xs font-mono text-[#8E8E93]">
-                      ફોન: {selectedBookingForDetails.phone}
-                    </p>
-                  </div>
-                  <a
-                    href={getWhatsAppUrl(
-                      selectedBookingForDetails.phone,
-                      getWhatsAppStageMessage(selectedBookingForDetails)
+                    {currentPerms.canViewClientContacts && (
+                      <p className="text-2xs font-mono text-[#8E8E93]">
+                        ફોન: {selectedBookingForDetails.phone}
+                      </p>
                     )}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-sm"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                    <span>WhatsApp ચેટ</span>
-                  </a>
-                </div>
-
-                {/* ── Feature 3: 1-Click WhatsApp Status Updates Box ── */}
-                <div className="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xs font-bold text-emerald-900 uppercase flex items-center space-x-1">
-                      <Phone className="h-3 w-3 text-emerald-700" />
-                      <span>૧-ક્લિક વોટ્સએપ સ્ટેટસ અપડેટ (Client WhatsApp)</span>
-                    </span>
+                  </div>
+                  {currentPerms.canViewClientContacts && (
                     <a
                       href={getWhatsAppUrl(
                         selectedBookingForDetails.phone,
@@ -4342,16 +4821,40 @@ export default function RseOsPage() {
                       )}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition flex items-center space-x-1 shadow-sm active:scale-95"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-sm"
                     >
-                      <Send className="h-3 w-3" />
-                      <span>મેસેજ મોકલો (Send)</span>
+                      <Phone className="h-3.5 w-3.5" />
+                      <span>WhatsApp ચેટ</span>
                     </a>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-white border border-emerald-200 text-2xs text-gray-800 font-sans whitespace-pre-line leading-relaxed shadow-2xs">
-                    {getWhatsAppStageMessage(selectedBookingForDetails)}
-                  </div>
+                  )}
                 </div>
+
+                {/* ── Feature 3: 1-Click WhatsApp Status Updates Box (Only when Client Contacts permitted) ── */}
+                {currentPerms.canViewClientContacts && (
+                  <div className="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xs font-bold text-emerald-900 uppercase flex items-center space-x-1">
+                        <Phone className="h-3 w-3 text-emerald-700" />
+                        <span>૧-ક્લિક વોટ્સએપ સ્ટેટસ અપડેટ (Client WhatsApp)</span>
+                      </span>
+                      <a
+                        href={getWhatsAppUrl(
+                          selectedBookingForDetails.phone,
+                          getWhatsAppStageMessage(selectedBookingForDetails)
+                        )}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition flex items-center space-x-1 shadow-sm active:scale-95"
+                      >
+                        <Send className="h-3 w-3" />
+                        <span>મેસેજ મોકલો (Send)</span>
+                      </a>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white border border-emerald-200 text-2xs text-gray-800 font-sans whitespace-pre-line leading-relaxed shadow-2xs">
+                      {getWhatsAppStageMessage(selectedBookingForDetails)}
+                    </div>
+                  </div>
+                )}
 
                 {/* ── Feature 4: Revision Round Tracker in View Mode ── */}
                 <div className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F8F7F4] border border-[#E5E5EA]">
@@ -4378,7 +4881,7 @@ export default function RseOsPage() {
                       </span>
                     )}
                   </div>
-                  {isAdmin && (
+                  {currentPerms.canEditBooking && (
                     <button
                       type="button"
                       onClick={() => {
@@ -4460,8 +4963,8 @@ export default function RseOsPage() {
                   </div>
                 </div>
 
-                {/* Assignment to Editor */}
-                {isAdmin && (
+                {/* Assignment to Editor (Only when All Bookings + Edit allowed) */}
+                {currentPerms.canViewAllBookings && currentPerms.canEditBooking && (
                   <div className="space-y-1">
                     <label className="text-2xs font-bold text-[#8E8E93] uppercase">
                       એડિટરને સોંપો (Assign Staff Member):
@@ -4513,7 +5016,8 @@ export default function RseOsPage() {
                   </select>
                 </div>
 
-                {/* Payment Summary & Toggle */}
+                {/* Payment Summary & Toggle (Strictly hidden when Pricing permission is OFF) */}
+                {currentPerms.canViewPricingAndInvoices && (
                 <div className="bg-[#F8F7F4] p-3 rounded-2xl border border-[#E5E5EA] space-y-2 text-xs">
                   <div className="flex justify-between items-center text-2xs">
                     <span className="font-semibold text-[#8E8E93]">૫૦% એડવાન્સ રકમ:</span>
@@ -4557,6 +5061,7 @@ export default function RseOsPage() {
                     </button>
                   </div>
                 </div>
+                )}
 
                 {/* Raw Footage Link */}
                 <div>
