@@ -159,7 +159,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const lv = localStorage.getItem("rse_leaves_v2");
       if (lv) setLeaveRequests(JSON.parse(lv));
 
-      // Force purge legacy dummy bookings from browser cache
+      // Force purge ONLY legacy dummy bookings from browser cache (never purge real RSE/NOV/001 client data)
       try {
         const legacyB = localStorage.getItem("rse_bookings_v2");
         if (legacyB) {
@@ -168,7 +168,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const b = localStorage.getItem("rse_bookings_v3");
         if (b) {
           const parsed = JSON.parse(b);
-          if (Array.isArray(parsed) && parsed.some((x: any) => x.coupleNames === "Karan & Tanya" || x.code === "RSE/NOV/001")) {
+          if (Array.isArray(parsed) && parsed.some((x: any) => x.coupleNames === "Karan & Tanya")) {
             localStorage.setItem("rse_bookings_v3", JSON.stringify([]));
             setBookings([]);
           } else {
@@ -241,6 +241,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (_) {}
+
+      // 5. Attendance Sync (MongoDB Atlas)
+      try {
+        const res = await fetch("/api/attendance", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.attendance)) {
+            setAttendance(data.attendance);
+          }
+        }
+      } catch (_) {}
     };
 
     fetchStudioData();
@@ -305,6 +316,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `s_${Date.now()}`,
     };
     setStaff((prev) => [...prev, newStaff]);
+    if (typeof window !== "undefined") {
+      fetch("/api/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newStaff),
+      }).catch(() => {});
+    }
     return newStaff;
   }, []);
 
@@ -346,6 +364,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         device,
       };
       setAttendance((prev) => [record, ...prev]);
+      if (typeof window !== "undefined") {
+        fetch("/api/attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(record),
+        }).catch(() => {});
+      }
     },
     [currentUser, attendance]
   );
@@ -354,11 +379,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!currentUser) return;
     const today = new Date().toISOString().split("T")[0];
     setAttendance((prev) =>
-      prev.map((a) =>
-        a.staffId === currentUser.id && a.date === today && !a.punchOut
-          ? { ...a, punchOut: new Date().toISOString() }
-          : a
-      )
+      prev.map((a) => {
+        if (a.staffId === currentUser.id && a.date === today && !a.punchOut) {
+          const updated = { ...a, punchOut: new Date().toISOString() };
+          if (typeof window !== "undefined") {
+            fetch("/api/attendance", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updated),
+            }).catch(() => {});
+          }
+          return updated;
+        }
+        return a;
+      })
     );
   }, [currentUser]);
 
@@ -509,6 +543,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [bookings, holidays]
   );
 
+  // Helper: format Date as local YYYY-MM-DD (avoids UTC off-by-one shift in IST)
+  const formatLocalYmd = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
   // Calculate Delivery Date with Sundays, Holidays, and Online buffer
   const calculateDeliveryDate = useCallback(
     (
@@ -530,7 +572,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       while (countedDays < standardDays) {
         cursor.setDate(cursor.getDate() + 1);
-        const ymd = cursor.toISOString().split("T")[0];
+        const ymd = formatLocalYmd(cursor);
         const isSunday = cursor.getDay() === 0;
         const isHoliday = holidays.some((h) => h.date === ymd);
 
@@ -543,7 +585,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         let bufferAdded = 0;
         while (bufferAdded < 1) {
           cursor.setDate(cursor.getDate() + 1);
-          const ymd = cursor.toISOString().split("T")[0];
+          const ymd = formatLocalYmd(cursor);
           const isSunday = cursor.getDay() === 0;
           const isHoliday = holidays.some((h) => h.date === ymd);
           if (!isSunday && !isHoliday) {
@@ -552,7 +594,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      return cursor.toISOString().split("T")[0];
+      return formatLocalYmd(cursor);
     },
     [services, holidays]
   );
@@ -564,14 +606,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       cursor.setDate(cursor.getDate() + 1);
 
       for (let i = 0; i < 45; i++) {
-        const ymd = cursor.toISOString().split("T")[0];
+        const ymd = formatLocalYmd(cursor);
         const avail = getSlotAvailability(ymd);
         if (avail.isAvailable) {
           return ymd;
         }
         cursor.setDate(cursor.getDate() + 1);
       }
-      return cursor.toISOString().split("T")[0];
+      return formatLocalYmd(cursor);
     },
     [getSlotAvailability]
   );

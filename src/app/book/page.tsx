@@ -88,13 +88,16 @@ export default function BookingPortalPage() {
   // 03) Offer Popup State
   const [showOfferPopup, setShowOfferPopup] = useState<boolean>(true);
 
-  // Form Fields - Selected Date (defaults to dynamic ISO date for next week)
+  const toLocalYmd = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  // Form Fields - Selected Date (defaults to dynamic local date for next week)
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const now = new Date();
     const dayOfWeek = now.getDay();
     const daysUntilNextMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
     now.setDate(now.getDate() + daysUntilNextMonday);
-    return now.toISOString().split("T")[0];
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   });
 
   // Guard to ensure initial slot auto-selection runs strictly ONCE on mount
@@ -105,7 +108,7 @@ export default function BookingPortalPage() {
   useEffect(() => {
     if (initialSlotInitialized.current) return;
     try {
-      const todayYmd = new Date().toISOString().split("T")[0];
+      const todayYmd = toLocalYmd(new Date());
       const nextAvail = findNextAvailableSlot(todayYmd, 2);
       if (nextAvail) {
         initialSlotInitialized.current = true;
@@ -412,7 +415,7 @@ export default function BookingPortalPage() {
           dataDeliveryMethod === "courier"
             ? hddTiming === "future"
               ? undefined
-              : dispatchDate || new Date().toISOString().split("T")[0]
+              : dispatchDate || toLocalYmd(new Date())
             : undefined,
         onlineDriveLink:
           foreignOnlineOption === "request_rse_link"
@@ -503,12 +506,14 @@ export default function BookingPortalPage() {
   const handleTrackOrder = () => {
     if (!trackerQuery.trim()) return;
     const clean = trackerQuery.trim().toLowerCase();
-    const found = bookings.find(
-      (b) =>
-        b.code.toLowerCase() === clean ||
-        b.phone.replace(/\D/g, "").includes(clean.replace(/\D/g, "")) ||
-        b.studioOrClient.toLowerCase().includes(clean)
-    );
+    const cleanDigits = clean.replace(/\D/g, "");
+    const found = bookings.find((b) => {
+      const codeMatch = b.code.toLowerCase() === clean;
+      const phoneDigits = b.phone.replace(/\D/g, "");
+      const phoneMatch = cleanDigits.length >= 4 && phoneDigits.includes(cleanDigits);
+      const studioMatch = b.studioOrClient.toLowerCase().includes(clean);
+      return codeMatch || phoneMatch || studioMatch;
+    });
     setTrackedBooking(found || null);
   };
 
@@ -670,7 +675,9 @@ export default function BookingPortalPage() {
                 type="button"
                 onClick={() => {
                   setRegion("foreign");
+                  setCountry("United States");
                   setSelectedServiceIds(["f_demo_5m"]);
+                  setCurrentStep(2);
                   dismissOffer();
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-[#6b2e4c] hover:bg-[#a83d5b] text-[#f5e6cc] font-semibold text-xs shadow-md shadow-[#6b2e4c4d] transition-all"
@@ -1437,7 +1444,9 @@ export default function BookingPortalPage() {
 
                             <div className="flex items-center justify-between text-xs text-[#4a4a4a] pt-3 mt-2 border-t border-[#e5e5e5]">
                               <span className="font-bold text-[#6b2e4c] text-[11px] truncate max-w-[170px]" title={srv.pricingNote}>
-                                {srv.pricingNote || (srv.basePriceINR ? `₹${srv.basePriceINR.toLocaleString("en-IN")}` : "Custom Quote")}
+                                {srv.isFreeDemo
+                                  ? "100% Free Sample"
+                                  : srv.pricingNote || (srv.region === "indian" && srv.basePriceINR ? `₹${srv.basePriceINR.toLocaleString("en-IN")}` : "Custom Quote")}
                               </span>
                               <span className="font-bold text-[#0f0f10] bg-[#f8f8f8] px-2 py-0.5 rounded-lg border border-[#e5e5e5] text-[11px] shrink-0">
                                 {srv.clientDays} Days
@@ -2100,7 +2109,11 @@ export default function BookingPortalPage() {
                         <p className="text-[11px] text-amber-900/90 leading-relaxed">
                           Your production slot begins on <strong>{selectedDate}</strong>. To ensure guaranteed delivery, your footage must{" "}
                           <strong>
-                            {new Date(new Date(selectedDate).getTime() - 86400000).toISOString().split("T")[0]}
+                            {(() => {
+                              const d = new Date(`${selectedDate}T00:00:00`);
+                              d.setDate(d.getDate() - 1);
+                              return toLocalYmd(d);
+                            })()}
                           </strong>{" "}
                           {dataDeliveryMethod === "courier"
                             ? "reach our Gandhinagar studio by 6:00 PM."

@@ -187,7 +187,24 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const current = loadStoredBookings();
+    let current = loadStoredBookings();
+
+    // Merge with MongoDB Atlas so cold serverless instances see all existing codes
+    if (isMongoConfigured()) {
+      try {
+        const mongoBookings = await fetchBookingsFromMongo();
+        if (mongoBookings && mongoBookings.length > 0) {
+          const map = new Map<string, Booking>();
+          for (const b of mongoBookings) {
+            if (b.id) map.set(b.id, b);
+          }
+          for (const b of current) {
+            if (b.id && !map.has(b.id)) map.set(b.id, b);
+          }
+          current = Array.from(map.values());
+        }
+      } catch (_) {}
+    }
 
     // Only match existing by unique id
     const exists = current.find((b) => body.id && b.id === body.id);
