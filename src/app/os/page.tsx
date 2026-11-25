@@ -913,11 +913,19 @@ export default function RseOsPage() {
   // ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#F8F7F4] text-[#1C1C1E] flex flex-col font-sans">
+      <head>
+        <title>RSE | OS - Studio Production</title>
+        <link rel="manifest" href="/manifest-os.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="RSE OS" />
+        <link rel="apple-touch-icon" href="/rse-logo.png" />
+      </head>
       {/* ── Top Bar (macOS Window Header) ── */}
       <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-[#E5E5EA] px-4 sm:px-6 py-2.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           {/* Left: Branding & Role (With native traffic light spacing) */}
-          <div className="flex items-center space-x-3 pl-14 sm:pl-16">
+          <div className="flex items-center space-x-3 pl-2 sm:pl-16">
             <div className="h-8 w-8 rounded-xl bg-[#6B2E4C] text-white flex items-center justify-center font-black text-sm shadow-sm">
               R
             </div>

@@ -1,0 +1,21 @@
+#!/bin/bash
+DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$DIR" || exit 1
+
+export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+
+if ! command -v node >/dev/null 2>&1; then
+    for p in /opt/homebrew/bin /usr/local/bin "$HOME/.nvm/versions/node/"*"/bin"; do
+        if [ -x "$p/node" ]; then
+            export PATH="$p:$PATH"
+            break
+        fi
+    done
+fi
+
+if ! curl -s -m 1 http://localhost:3100/os >/dev/null 2>&1; then
+    npm run start >/dev/null 2>&1 &
+    sleep 2
+fi
+
+npm run desktop

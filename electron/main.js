@@ -1,10 +1,12 @@
 const { app, BrowserWindow, shell, Menu } = require("electron");
 const http = require("http");
+const path = require("path");
 
 // Disable GPU compositing to prevent mailbox overlay errors on macOS Apple Silicon
 app.commandLine.appendSwitch("disable-gpu-compositing");
 
 const BASE_URL = "http://localhost:3100/os";
+const ICON_PATH = path.join(__dirname, "AppIcon.icns");
 
 function waitForServer(url, timeoutMs = 30000) {
   const startTime = Date.now();
@@ -114,12 +116,19 @@ function setupMenu(win) {
 }
 
 async function createWindow() {
+  if (process.platform === "darwin" && app.dock) {
+    try {
+      app.dock.setIcon(ICON_PATH);
+    } catch (e) {}
+  }
+
   const win = new BrowserWindow({
     width: 1440,
     height: 920,
     minWidth: 1000,
     minHeight: 680,
     title: "RSE | OS",
+    icon: ICON_PATH,
     backgroundColor: "#F8F7F4",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     trafficLightPosition: { x: 16, y: 16 },
