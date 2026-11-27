@@ -292,6 +292,16 @@ export default function RseOsPage() {
   const [loginPassword, setLoginPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Inline Leave Review & Service Pricing edit state (replaces browser prompt())
+  const [reviewingLeave, setReviewingLeave] = useState<{
+    id: string;
+    action: "approved" | "rejected";
+    note: string;
+  } | null>(null);
+  const [editingServicePriceId, setEditingServicePriceId] = useState<string | null>(null);
+  const [editingServicePriceValue, setEditingServicePriceValue] = useState<string>("");
 
   // Apple device view mode: "mac" (Desktop Workstation) vs "iphone" (iOS Mobile)
   const [devicePreviewMode, setDevicePreviewMode] = useState<"mac" | "iphone">("mac");
@@ -574,19 +584,25 @@ export default function RseOsPage() {
     };
   }, [currentUser]);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoggingIn) return;
     setLoginError(null);
     const cleanEmail = loginEmail.trim();
     if (!cleanEmail || !loginPassword) {
       setLoginError("⚠️ કૃપા કરીને ઈમેઈલ અને પાસવર્ડ બંને દાખલ કરો.");
       return;
     }
-    const res = login(cleanEmail, loginPassword);
-    if (!res.success) {
-      setLoginError(res.error || "ખોટો ઈમેઈલ અથવા પાસવર્ડ.");
-    } else {
-      setLoginPassword("");
+    setIsLoggingIn(true);
+    try {
+      const res = await login(cleanEmail, loginPassword);
+      if (!res.success) {
+        setLoginError(res.error || "ખોટો ઈમેઈલ અથવા પાસવર્ડ.");
+      } else {
+        setLoginPassword("");
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -874,9 +890,12 @@ export default function RseOsPage() {
   // ─────────────────────────────────────────────────────────────────
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-[#F8F7F4] text-[#1C1C1E] flex flex-col justify-between p-4 sm:p-8 font-sans">
+      <div className="min-h-screen bg-[#F8F7F4] text-[#1C1C1E] flex flex-col justify-between p-4 sm:p-8 pt-8 sm:pt-10 font-sans select-none">
         {/* Header / Brand */}
-        <header className="max-w-4xl mx-auto w-full flex items-center justify-between py-2">
+        <header
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+          className="max-w-4xl mx-auto w-full flex items-center justify-between py-2 pl-16 sm:pl-0"
+        >
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-2xl bg-[#6B2E4C] text-white flex items-center justify-center font-black text-lg shadow-md">
               R
@@ -901,8 +920,11 @@ export default function RseOsPage() {
         </header>
 
         {/* Login Center Box */}
-        <main className="max-w-md w-full mx-auto my-auto space-y-6">
-          <div className="apple-glass-card rounded-3xl p-7 space-y-6 shadow-xl border border-black/5 bg-white/90">
+        <main
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+          className="max-w-md w-full mx-auto my-auto select-text"
+        >
+          <div className="apple-glass-card rounded-3xl p-7 sm:p-8 space-y-5 shadow-xl border border-black/[0.06] bg-white/95">
             <div className="text-center space-y-1.5">
               <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-[#6B2E4C]/10 text-[#6B2E4C] mb-1">
                 <Laptop className="h-6 w-6" />
@@ -915,21 +937,36 @@ export default function RseOsPage() {
               </p>
             </div>
 
-            {loginError && (
-              <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-start space-x-2 animate-fadeIn">
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>{loginError}</span>
-              </div>
-            )}
+            {/* Fixed minimum height feedback container prevents card resize jitter on error */}
+            <div className="min-h-[46px] flex items-center">
+              {loginError ? (
+                <div
+                  role="alert"
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center space-x-2"
+                >
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span className="leading-snug">{loginError}</span>
+                </div>
+              ) : (
+                <div className="w-full px-3.5 py-2.5 rounded-2xl bg-[#F8F7F4] border border-[#E5E5EA]/70 text-[#636366] text-[11px] flex items-center justify-center space-x-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#6B2E4C] shrink-0" />
+                  <span>MongoDB Live Authentication • સુરક્ષિત સ્ટુડિયો લોગિન</span>
+                </div>
+              )}
+            </div>
 
             <form onSubmit={handleLoginSubmit} noValidate className="space-y-4 text-xs">
               <div>
-                <label className="block text-[#3A3A3C] font-semibold mb-1 text-2xs uppercase tracking-wider">
+                <label
+                  htmlFor="os-login-email"
+                  className="block text-[#3A3A3C] font-semibold mb-1.5 text-2xs uppercase tracking-wider"
+                >
                   ઈમેઈલ એડ્રેસ (Email)
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-[#8E8E93]" />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8E8E93] pointer-events-none" />
                   <input
+                    id="os-login-email"
                     type="email"
                     autoFocus
                     autoComplete="email"
@@ -939,18 +976,22 @@ export default function RseOsPage() {
                       if (loginError) setLoginError(null);
                     }}
                     placeholder="Keyur@rse-edit.com"
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-[#D1D1D6] bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#6B2E4C]/20 focus:border-[#6B2E4C] transition"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-[#D1D1D6] bg-white text-sm text-[#1C1C1E] focus:outline-none focus:ring-2 focus:ring-[#6B2E4C]/20 focus:border-[#6B2E4C] transition-colors"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[#3A3A3C] font-semibold mb-1 text-2xs uppercase tracking-wider">
+                <label
+                  htmlFor="os-login-password"
+                  className="block text-[#3A3A3C] font-semibold mb-1.5 text-2xs uppercase tracking-wider"
+                >
                   પાસવર્ડ (Password)
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-[#8E8E93]" />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8E8E93] pointer-events-none" />
                   <input
+                    id="os-login-password"
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     value={loginPassword}
@@ -959,34 +1000,47 @@ export default function RseOsPage() {
                       if (loginError) setLoginError(null);
                     }}
                     placeholder="••••••••"
-                    className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-[#D1D1D6] bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#6B2E4C]/20 focus:border-[#6B2E4C] transition"
+                    className="w-full pl-10 pr-12 py-2.5 rounded-xl border border-[#D1D1D6] bg-white text-sm text-[#1C1C1E] focus:outline-none focus:ring-2 focus:ring-[#6B2E4C]/20 focus:border-[#6B2E4C] transition-colors"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-[#8E8E93] hover:text-[#1C1C1E]"
+                    aria-label={showPassword ? "પાસવર્ડ છુપાવો" : "પાસવર્ડ જુઓ"}
+                    aria-pressed={showPassword}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-0 top-0 bottom-0 w-11 flex items-center justify-center rounded-r-xl text-[#636366] hover:text-[#1C1C1E] hover:bg-black/[0.04] z-20 cursor-pointer focus:outline-none focus:text-[#6B2E4C]"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 pointer-events-none" />
+                    ) : (
+                      <Eye className="h-4 w-4 pointer-events-none" />
+                    )}
                   </button>
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-2xl bg-[#6B2E4C] text-white font-bold text-xs hover:bg-[#58243E] active:scale-[0.98] transition shadow-md flex items-center justify-center space-x-2 cursor-pointer"
+                disabled={isLoggingIn}
+                className="w-full py-3 rounded-2xl bg-[#6B2E4C] text-white font-bold text-xs hover:bg-[#58243E] disabled:opacity-70 transition-colors shadow-md flex items-center justify-center space-x-2 cursor-pointer"
               >
-                <span>લોગિન કરો (Sign In)</span>
-                <ArrowRight className="h-4 w-4" />
+                {isLoggingIn ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span>લોગિન થઈ રહ્યું છે...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>લોગિન કરો (Sign In)</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </form>
 
             {/* Security Notice (Zero Demo/Passwordless Quick-Logins) */}
-            <div className="pt-4 border-t border-[#E5E5EA] text-center space-y-1">
-              <div className="inline-flex items-center space-x-1.5 text-2xs font-bold text-[#6B2E4C] bg-[#6B2E4C]/10 px-3 py-1 rounded-full">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                <span>રોલ-આધારિત સુરક્ષિત સ્ટુડિયો લોગિન</span>
-              </div>
-              <p className="text-2xs text-[#8E8E93]">
+            <div className="pt-3 border-t border-[#E5E5EA] text-center">
+              <p className="text-2xs text-[#8E8E93] leading-relaxed">
                 એડમિન દ્વારા આપવામાં આવેલ ઈમેઈલ અને પાસવર્ડથી લોગિન કરો. લોગિન થયા પછી તમારી પરમિશન મુજબ જ ડેશબોર્ડ ખૂલશે.
               </p>
             </div>
@@ -2493,27 +2547,76 @@ export default function RseOsPage() {
                         )}
                       </div>
 
-                      {/* Action buttons if pending */}
+                      {/* Action buttons if pending (Inline note bar — zero browser prompt()) */}
                       {lv.status === "pending" && (
-                        <div className="flex items-center space-x-2 shrink-0">
-                          <button
-                            onClick={() => {
-                              const note = prompt("મંજૂરી માટે કોઈ નોંધ લખવી છે? (વૈકલ્પિક):");
-                              updateLeaveStatus(lv.id, "approved", note || undefined);
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition"
-                          >
-                            ✓ Approve
-                          </button>
-                          <button
-                            onClick={() => {
-                              const note = prompt("અસ્વીકાર કરવાનું કારણ લખો:");
-                              updateLeaveStatus(lv.id, "rejected", note || undefined);
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-700 transition"
-                          >
-                            ✕ Reject
-                          </button>
+                        <div className="flex flex-col items-end space-y-2 shrink-0">
+                          {reviewingLeave?.id === lv.id ? (
+                            <div className="flex flex-wrap items-center gap-1.5 bg-[#F8F7F4] p-2 rounded-xl border border-[#E5E5EA]">
+                              <input
+                                type="text"
+                                autoFocus
+                                value={reviewingLeave.note}
+                                onChange={(e) =>
+                                  setReviewingLeave({
+                                    ...reviewingLeave,
+                                    note: e.target.value,
+                                  })
+                                }
+                                placeholder={
+                                  reviewingLeave.action === "approved"
+                                    ? "મંજૂરી નોંધ (વૈકલ્પિક)..."
+                                    : "અસ્વીકારનું કારણ લખો..."
+                                }
+                                className="px-2.5 py-1 rounded-lg border border-[#D1D1D6] bg-white text-xs w-44 focus:outline-none focus:border-[#6B2E4C]"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  updateLeaveStatus(
+                                    lv.id,
+                                    reviewingLeave.action,
+                                    reviewingLeave.note.trim() || undefined
+                                  );
+                                  setReviewingLeave(null);
+                                }}
+                                className={`px-2.5 py-1 rounded-lg text-white font-bold text-xs cursor-pointer ${
+                                  reviewingLeave.action === "approved"
+                                    ? "bg-emerald-600 hover:bg-emerald-700"
+                                    : "bg-red-600 hover:bg-red-700"
+                                }`}
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setReviewingLeave(null)}
+                                className="px-2 py-1 rounded-lg bg-white border border-[#D1D1D6] text-xs text-[#636366] hover:text-[#1C1C1E] cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReviewingLeave({ id: lv.id, action: "approved", note: "" })
+                                }
+                                className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors cursor-pointer"
+                              >
+                                ✓ Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReviewingLeave({ id: lv.id, action: "rejected", note: "" })
+                                }
+                                className="px-3 py-1.5 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-700 transition-colors cursor-pointer"
+                              >
+                                ✕ Reject
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -2780,23 +2883,56 @@ export default function RseOsPage() {
                       </div>
 
                       <div className="flex items-center space-x-2">
-                        <span className="font-mono font-bold text-[#1C1C1E]">
-                          ₹{(srv.basePriceINR || 0).toLocaleString("en-IN")}
-                        </span>
-                        <button
-                          onClick={() => {
-                            const newP = prompt(
-                              `નવો ભાવ નાખો for ${srv.name} (INR):`,
-                              String(srv.basePriceINR || 0)
-                            );
-                            if (newP && !isNaN(Number(newP))) {
-                              updateServicePrice(srv.id, Number(newP));
-                            }
-                          }}
-                          className="p-1 rounded-lg text-[#8E8E93] hover:text-[#1C1C1E]"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
+                        {editingServicePriceId === srv.id ? (
+                          <div className="flex items-center space-x-1.5">
+                            <span className="text-xs text-[#8E8E93]">₹</span>
+                            <input
+                              type="number"
+                              autoFocus
+                              min={0}
+                              value={editingServicePriceValue}
+                              onChange={(e) => setEditingServicePriceValue(e.target.value)}
+                              className="w-24 px-2 py-1 rounded-lg border border-[#6B2E4C] bg-white font-mono text-xs text-[#1C1C1E] focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const parsed = Number(editingServicePriceValue);
+                                if (!isNaN(parsed) && parsed >= 0) {
+                                  updateServicePrice(srv.id, parsed);
+                                }
+                                setEditingServicePriceId(null);
+                              }}
+                              className="px-2 py-1 rounded-lg bg-[#6B2E4C] text-white text-2xs font-bold hover:bg-[#58243E] cursor-pointer"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingServicePriceId(null)}
+                              className="px-2 py-1 rounded-lg border border-[#D1D1D6] text-2xs text-[#636366] hover:text-[#1C1C1E] cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="font-mono font-bold text-[#1C1C1E]">
+                              ₹{(srv.basePriceINR || 0).toLocaleString("en-IN")}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`${srv.name} ભાવ બદલો`}
+                              onClick={() => {
+                                setEditingServicePriceId(srv.id);
+                                setEditingServicePriceValue(String(srv.basePriceINR || 0));
+                              }}
+                              className="p-1.5 rounded-lg text-[#8E8E93] hover:text-[#1C1C1E] hover:bg-black/[0.04] cursor-pointer"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}

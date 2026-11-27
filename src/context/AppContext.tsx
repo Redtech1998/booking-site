@@ -30,7 +30,7 @@ interface AppState {
   // Auth
   hydrated: boolean;
   currentUser: StaffMember | null;
-  login: (email: string, password: string) => { success: boolean; error?: string };
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 
   // Staff Management
@@ -288,12 +288,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
   }, [currentUserId, staff, attendance, leaveRequests, bookings, clients, invoices, services, holidays, hydrated]);
 
-  // Auth Functions
+  // Auth Functions — verifies live against MongoDB Atlas first, with local fallback if offline
   const login = useCallback(
-    (email: string, pass: string): { success: boolean; error?: string } => {
+    async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
       const cleanEmail = email.trim().toLowerCase();
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: cleanEmail, password: pass }),
+        });
+        const data = await res.json();
+        if (res.ok && data?.success && data?.user) {
+          const loggedInUser: StaffMember = data.user;
+          setStaff((prev) => {
+            const exists = prev.some((s) => s.id === loggedInUser.id);
+            return exists
+              ? prev.map((s) => (s.id === loggedInUser.id ? loggedInUser : s))
+              : [...prev, loggedInUser];
+          });
+          setCurrentUserId(loggedInUser.id);
+          return { success: true };
+        }
+        if (data?.error) {
+          return { success: false, error: data.error };
+        }
+      } catch {
+        // Fallback to local state when offline
+      }
+
       const found = staff.find(
-        (s) => s.email.trim().toLowerCase() === cleanEmail && s.password === pass
+        (s) =>
+          s.email.trim().toLowerCase() === cleanEmail &&
+          (s.password === pass || s.password === pass.trim())
       );
       if (found) {
         if (!found.isActive) {
